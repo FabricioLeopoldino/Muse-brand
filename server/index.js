@@ -428,6 +428,8 @@ async function seedBomRules() {
 app.use(cors())
 app.use(express.json())
 
+app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))
+
 function auth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
