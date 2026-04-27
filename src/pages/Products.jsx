@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { Plus, Search, Edit2, Trash2, X, ChevronDown, Package, Beaker, Layers, FlaskConical, TrendingUp } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Plus, Search, Edit2, Trash2, X, ChevronDown, Package, Beaker, Layers, FlaskConical, TrendingUp, Printer } from 'lucide-react'
 import axios from 'axios'
+import JsBarcode from 'jsbarcode'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import ConfirmModal from '../components/ConfirmModal.jsx'
 import { useToast } from '../App.jsx'
@@ -55,6 +56,9 @@ export default function Products() {
   const [strengthTarget, setStrengthTarget] = useState(null)
   const [strengthLog, setStrengthLog] = useState([])
   const [strengthLoading, setStrengthLoading] = useState(false)
+  const [barcodeTarget, setBarcodeTarget] = useState(null)
+  const [barcodeCopies, setBarcodeCopies] = useState(1)
+  const svgRef = useRef(null)
   const { addToast } = useToast()
 
   useEffect(() => { loadProducts(); loadSuppliers() }, [])
@@ -76,6 +80,51 @@ export default function Products() {
       const res = await axios.get('/api/suppliers', api())
       setSuppliers(res.data)
     } catch {}
+  }
+
+  function openBarcode(product) {
+    setBarcodeTarget(product)
+    setBarcodeCopies(1)
+  }
+
+  function printBarcode() {
+    if (!barcodeTarget) return
+    const copies = Math.max(1, Math.min(parseInt(barcodeCopies) || 1, 100))
+    const win = window.open('', '_blank', 'width=600,height=500')
+
+    // Build one barcode SVG
+    const tmpSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    JsBarcode(tmpSvg, barcodeTarget.barcode, {
+      format: 'CODE128', lineColor: '#000', background: '#fff',
+      width: 2, height: 60, displayValue: true,
+      font: 'monospace', fontSize: 11, margin: 8,
+    })
+    const svgStr = tmpSvg.outerHTML
+
+    const labels = Array.from({ length: copies }, (_, i) => `
+      <div class="label">
+        <div class="name">${barcodeTarget.name}</div>
+        ${svgStr}
+        <div class="code">${barcodeTarget.product_code}</div>
+      </div>`).join('')
+
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode — ${barcodeTarget.name}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: monospace; background: #fff; padding: 12px; }
+        .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .label { border: 1px dashed #ccc; border-radius: 4px; padding: 8px 12px;
+                 text-align: center; width: 200px; page-break-inside: avoid; }
+        .name { font-size: 11px; font-weight: bold; margin-bottom: 4px;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .code { font-size: 10px; color: #666; margin-top: 2px; }
+        svg { max-width: 100%; height: auto; }
+        @media print { body { padding: 0; } }
+      </style></head>
+      <body><div class="grid">${labels}</div>
+      <script>window.onload = () => { window.print(); }<\/script>
+      </body></html>`)
+    win.document.close()
   }
 
   async function openStrengthLog(product) {
@@ -260,6 +309,11 @@ export default function Products() {
                           <TrendingUp size={13} />
                         </button>
                       )}
+                      {p.barcode && (
+                        <button onClick={() => openBarcode(p)} title="Print Barcode" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#10b981' }}>
+                          <Printer size={13} />
+                        </button>
+                      )}
                       <button onClick={() => openEdit(p)} style={{ background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#60a5fa' }}>
                         <Edit2 size={13} />
                       </button>
@@ -387,6 +441,53 @@ export default function Products() {
         </div>
       )}
 
+      {/* Barcode Print Modal */}
+      {barcodeTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
+          <div style={{ background: '#13132b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 17, color: '#e8eaf2' }}>Print Barcode</h2>
+                <div style={{ fontSize: 12, color: '#10b981', marginTop: 2 }}>{barcodeTarget.name}</div>
+              </div>
+              <button onClick={() => setBarcodeTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,234,242,0.5)' }}><X size={18} /></button>
+            </div>
+
+            {/* Barcode preview */}
+            <div style={{ background: '#fff', borderRadius: 8, padding: '16px 12px', marginBottom: 18, textAlign: 'center' }}>
+              <BarcodePreview value={barcodeTarget.barcode} />
+              <div style={{ fontSize: 10, color: '#666', marginTop: 4, fontFamily: 'monospace' }}>{barcodeTarget.product_code}</div>
+            </div>
+
+            {/* Barcode string info */}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', marginBottom: 18 }}>
+              <div style={{ fontSize: 10, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Barcode Value (CODE128)</div>
+              <div style={{ fontSize: 13, fontFamily: 'monospace', color: '#e8eaf2', fontWeight: 700 }}>{barcodeTarget.barcode}</div>
+            </div>
+
+            {/* Copies */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(232,234,242,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Copies</label>
+              <input
+                type="number" min={1} max={100} value={barcodeCopies}
+                onChange={e => setBarcodeCopies(e.target.value)}
+                style={{ width: 80, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', color: '#e8eaf2', fontSize: 13, outline: 'none', textAlign: 'center' }}
+              />
+              <span style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>labels per sheet</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setBarcodeTarget(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 0', color: '#e8eaf2', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button onClick={printBarcode} style={{ flex: 2, background: '#10b981', border: 'none', borderRadius: 8, padding: '9px 0', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Printer size={14} /> Print {barcodeCopies > 1 ? `${barcodeCopies} Labels` : 'Label'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Strength Log Modal */}
       {strengthTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
@@ -485,6 +586,24 @@ export default function Products() {
       )}
     </div>
   )
+}
+
+// ─── Barcode Preview ───
+function BarcodePreview({ value }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!ref.current || !value) return
+    try {
+      JsBarcode(ref.current, value, {
+        format: 'CODE128', lineColor: '#000', background: '#fff',
+        width: 2, height: 60, displayValue: true,
+        font: 'monospace', fontSize: 11, margin: 6,
+      })
+    } catch (e) {
+      // invalid barcode value — leave empty
+    }
+  }, [value])
+  return <svg ref={ref} style={{ maxWidth: '100%' }} />
 }
 
 // ─── Helpers ───
