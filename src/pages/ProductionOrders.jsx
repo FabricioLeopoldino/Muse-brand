@@ -115,8 +115,12 @@ export default function ProductionOrders() {
 
   async function sendToShopify(order) {
     try {
-      await axios.post('/api/shopify/draft-order', { production_order_id: order.id }, api())
-      addToast('Draft order sent to Shopify')
+      const { data } = await axios.post('/api/shopify/draft-order', { production_order_id: order.id }, api())
+      if (data.queued) {
+        addToast('Shopify unavailable — order queued for retry', 'error')
+      } else {
+        addToast('Draft order sent to Shopify')
+      }
       loadOrders()
     } catch (e) { addToast(e.response?.data?.error || 'Shopify error', 'error') }
   }
