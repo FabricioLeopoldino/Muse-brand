@@ -31,6 +31,7 @@ app.use('/api', require('./routes/webhooks'))
 app.use('/api', require('./routes/container-types'))
 app.use('/api', require('./routes/masters'))
 app.use('/api', require('./routes/major-clients'))
+app.use('/', require('./routes/shopify-oauth'))
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')))
