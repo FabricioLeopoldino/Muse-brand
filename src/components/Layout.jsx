@@ -5,72 +5,121 @@ import {
   LayoutDashboard, ShoppingBag, Factory, Package, Archive,
   BookOpen, Users, ScanBarcode, Truck, RotateCcw,
   History, ScrollText, UserCog, LogOut, ChevronLeft, ChevronRight,
-  Beaker
+  Beaker, ClipboardList, Building2, Star, Briefcase, Tag, Box, FlaskConical,
+  Sun, Moon, Send,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['root','admin','user'] },
-  { path: '/production-orders', label: 'Production Orders', icon: ShoppingBag, roles: ['root','admin','user'] },
-  { path: '/manufacturing-queue', label: 'Manufacturing Queue', icon: Factory, roles: ['root','admin','user'] },
-  { divider: true },
-  { path: '/products', label: 'Products', icon: Package, roles: ['root','admin','user'] },
-  { path: '/stock', label: 'Stock Management', icon: Archive, roles: ['root','admin','user'] },
-  { path: '/bom', label: 'BOM Viewer', icon: BookOpen, roles: ['root','admin','user'] },
-  { divider: true },
-  { path: '/clients', label: 'Clients', icon: Users, roles: ['root','admin','user'] },
-  { path: '/barcode', label: 'Barcode Scanner', icon: ScanBarcode, roles: ['root','admin','user'] },
-  { path: '/incoming-orders', label: 'Incoming Orders', icon: Truck, roles: ['root','admin','user'] },
-  { path: '/returns', label: 'Returns', icon: RotateCcw, roles: ['root','admin','user'] },
-  { divider: true },
-  { path: '/transactions', label: 'Transaction History', icon: History, roles: ['root','admin','user'] },
-  { path: '/activity-log', label: 'Activity Log', icon: ScrollText, roles: ['root','admin'] },
-  { path: '/users', label: 'User Management', icon: UserCog, roles: ['root'] },
+function getInitialTheme() {
+  if (typeof document === 'undefined') return 'dark'
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+// Sections with headers. Each section has items; headers render as small uppercase labels.
+// Organized by mental model: SHARED workflows + SHARED inventory pool + MUSE world + SCENTED MERCHANDISE (B2B) + history/system.
+const NAV_SECTIONS = [
+  { items: [
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['root','admin','user'] },
+  ]},
+  { header: 'PRODUCTION', items: [
+    { path: '/production-orders', label: 'Production Orders', icon: ShoppingBag, roles: ['root','admin','user'] },
+    { path: '/manufacturing-queue', label: 'Manufacturing Queue', icon: Factory, roles: ['root','admin','user'] },
+    { path: '/packing-records', label: 'Packing Records', icon: ClipboardList, roles: ['root','admin','user'] },
+  ]},
+  { header: 'OPERATIONS', items: [
+    { path: '/barcode', label: 'Barcode Scanner', icon: ScanBarcode, roles: ['root','admin','user'] },
+    { path: '/incoming-orders', label: 'Incoming Orders', icon: Truck, roles: ['root','admin','user'] },
+    { path: '/external-processing', label: 'External Processing', icon: Send, roles: ['root','admin','user'] },
+    { path: '/suppliers', label: 'Suppliers', icon: Building2, roles: ['root','admin','user'] },
+    { path: '/returns', label: 'Returns', icon: RotateCcw, roles: ['root','admin','user'] },
+  ]},
+  { header: 'SHARED INVENTORY', items: [
+    { path: '/stock', label: 'Stock Management', icon: Archive, roles: ['root','admin','user'] },
+  ]},
+  { header: 'SCENTED MERCHANDISE', items: [
+    { path: '/customers', label: 'Clients', icon: Users, roles: ['root','admin','user'] },
+    { path: '/standard/catalog', label: 'Standard Catalog', icon: Tag, roles: ['root','admin','user'] },
+    { path: '/major-clients', label: 'Major Clients', icon: Briefcase, roles: ['root','admin','user'] },
+    { path: '/bom-sm', label: 'Bill of Materials', icon: BookOpen, roles: ['root','admin','user'] },
+    { path: '/sm-stock', label: 'Stock', icon: Package, roles: ['root','admin','user'] },
+  ]},
+  { header: 'MUSE', items: [
+    { path: '/muse', label: 'Dashboard', icon: Star, roles: ['root','admin','user'] },
+    { path: '/muse/products', label: 'Catalog', icon: Star, roles: ['root','admin','user'] },
+    { path: '/bom-muse', label: 'Bill of Materials', icon: BookOpen, roles: ['root','admin','user'] },
+    { path: '/muse-stock', label: 'Stock', icon: Package, roles: ['root','admin','user'] },
+  ]},
+  { header: 'HISTORY', items: [
+    { path: '/transactions', label: 'Transaction History', icon: History, roles: ['root','admin','user'] },
+    { path: '/activity-log', label: 'Activity Log', icon: ScrollText, roles: ['root','admin'] },
+  ]},
+  { header: 'SYSTEM', items: [
+    { path: '/users', label: 'User Management', icon: UserCog, roles: ['root'] },
+  ]},
 ]
 
 export default function Layout({ children }) {
   const [collapsed, setCollapsed] = useState(false)
+  const [theme, setTheme] = useState(getInitialTheme)
   const [location, navigate] = useLocation()
   const { user, logout } = useAuth()
 
   const sidebarWidth = collapsed ? 64 : 220
 
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    if (next === 'dark') document.documentElement.classList.add('dark')
+    else document.documentElement.classList.remove('dark')
+    try { localStorage.setItem('sm_theme', next) } catch {}
+  }
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0e0e1a' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Sidebar */}
       <div style={{
         width: sidebarWidth, minHeight: '100vh',
-        background: 'rgba(10,10,22,0.92)',
+        background: 'var(--card-bg)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        borderRight: '1px solid rgba(255,255,255,0.07)',
+        borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
-        transition: 'width 0.2s ease',
+        transition: 'width 0.2s ease, background 0.2s ease',
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100,
         overflowX: 'hidden'
       }}>
         {/* Logo */}
         <div style={{
           padding: collapsed ? '20px 0' : '20px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
           minHeight: 64
         }}>
           {!collapsed && (
-            <div>
-              <div style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 13, color: '#e8eaf2', letterSpacing: 1 }}>
-                SCENTED
-              </div>
-              <div style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 13, color: '#2563eb', letterSpacing: 1 }}>
-                MERCHANDISE
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* MU:SE editorial mark + Scented Merchandise system name — kept together */}
+              <img src="/logos/muse-logo-parchment.svg" alt="MU:SE" className="theme-dark-only" style={{ height: 22, display: 'block' }} />
+              <img src="/logos/muse-logo-wine.svg" alt="MU:SE" className="theme-light-only" style={{ height: 22, display: 'block' }} />
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                <div className="serif" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.02em', lineHeight: 1.1 }}>
+                  Scented Merchandise
+                </div>
+                <div style={{ fontSize: 8.5, fontWeight: 600, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--text-muted)', marginTop: 3 }}>
+                  Production &amp; Inventory
+                </div>
               </div>
             </div>
           )}
-          {collapsed && <Beaker size={20} color="#2563eb" />}
+          {collapsed && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <img src="/logos/muse-colon-parchment.svg" alt="MU:SE" className="theme-dark-only" style={{ height: 22 }} />
+              <img src="/logos/muse-colon-wine.svg" alt="MU:SE" className="theme-light-only" style={{ height: 22 }} />
+            </div>
+          )}
           <button
             onClick={() => setCollapsed(!collapsed)}
             style={{
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#e8eaf2',
+              background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: 'var(--text-primary)',
               display: 'flex', alignItems: 'center'
             }}
           >
@@ -80,56 +129,89 @@ export default function Layout({ children }) {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
-          {NAV_ITEMS.map((item, idx) => {
-            if (item.divider) return (
-              <div key={idx} style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '6px 0' }} />
-            )
-            if (!item.roles.includes(user?.role)) return null
-
-            const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path))
-            const Icon = item.icon
+          {NAV_SECTIONS.map((section, sIdx) => {
+            // Filter items by role first to know if section has any visible items
+            const visibleItems = section.items.filter(it => it.roles.includes(user?.role))
+            if (visibleItems.length === 0) return null
 
             return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                title={collapsed ? item.label : undefined}
-                className={isActive ? 'nav-active-glow' : undefined}
-                style={{
-                  width: '100%',
-                  background: isActive ? 'rgba(37,99,235,0.16)' : 'transparent',
-                  border: 'none',
-                  borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
-                  color: isActive ? '#e8eaf2' : 'rgba(232,234,242,0.5)',
-                  padding: collapsed ? '10px 0' : '10px 14px',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  cursor: 'pointer', fontSize: 13, fontWeight: isActive ? 700 : 400,
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                  boxShadow: isActive ? 'inset 3px 0 12px rgba(37,99,235,0.08)' : 'none',
-                }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-              >
-                <Icon size={16} style={{ flexShrink: 0, color: isActive ? '#60a5fa' : undefined }} />
-                {!collapsed && item.label}
-              </button>
+              <div key={sIdx} style={{ marginBottom: 4 }}>
+                {section.header && !collapsed && (
+                  <div style={{
+                    fontSize: 9, fontWeight: 800, color: 'var(--text-muted)',
+                    letterSpacing: '0.12em', textTransform: 'uppercase',
+                    padding: '12px 14px 4px',
+                  }}>
+                    {section.header}
+                  </div>
+                )}
+                {section.header && collapsed && sIdx > 0 && (
+                  <div style={{ height: 1, background: 'var(--border)', margin: '6px 8px' }} />
+                )}
+                {visibleItems.map(item => {
+                  const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path))
+                  const Icon = item.icon
+
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      title={collapsed ? item.label : undefined}
+                      className={isActive ? 'nav-active-glow' : undefined}
+                      style={{
+                        width: '100%',
+                        background: isActive
+                          ? (theme === 'light' ? 'rgba(97,36,40,0.05)' : 'var(--accent-soft)')
+                          : 'transparent',
+                        border: 'none',
+                        borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        padding: collapsed ? '10px 0' : '8px 14px',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        cursor: 'pointer', fontSize: 13, fontWeight: isActive ? 700 : 400,
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        transition: 'all 0.15s ease',
+                        whiteSpace: 'nowrap',
+                        boxShadow: theme === 'dark' && isActive ? 'var(--shadow-glow)' : 'none',
+                      }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface-2)' }}
+                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <Icon size={16} style={{ flexShrink: 0, color: isActive ? 'var(--accent)' : undefined }} />
+                      {!collapsed && item.label}
+                    </button>
+                  )
+                })}
+              </div>
             )
           })}
         </nav>
 
         {/* User / Logout */}
         <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.07)',
+          borderTop: '1px solid var(--border)',
           padding: collapsed ? '12px 0' : '12px 16px'
         }}>
           {!collapsed && (
-            <div style={{ fontSize: 12, color: 'rgba(232,234,242,0.45)', marginBottom: 8 }}>
-              <div style={{ color: '#e8eaf2', fontWeight: 600 }}>{user?.name}</div>
-              <div style={{ textTransform: 'uppercase', fontSize: 10, color: '#2563eb', fontWeight: 700, letterSpacing: 1 }}>{user?.role}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+              <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{user?.name}</div>
+              <div style={{ textTransform: 'uppercase', fontSize: 10, color: 'var(--accent)', fontWeight: 700, letterSpacing: 1 }}>{user?.role}</div>
             </div>
           )}
+          <button
+            onClick={toggleTheme}
+            title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
+            style={{
+              width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)',
+              borderRadius: 6, color: 'var(--text-secondary)', padding: collapsed ? '8px 0' : '8px 12px',
+              cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 8, justifyContent: collapsed ? 'center' : 'flex-start',
+              marginBottom: 8,
+            }}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            {!collapsed && (theme === 'dark' ? 'Light mode' : 'Dark mode')}
+          </button>
           <button
             onClick={logout}
             title={collapsed ? 'Logout' : undefined}

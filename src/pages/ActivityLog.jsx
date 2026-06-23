@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Search, Download } from 'lucide-react'
 import axios from 'axios'
 import { useToast } from '../App.jsx'
+import SearchSelect from '../components/SearchSelect.jsx'
+import { fmt } from '../utils/date.js'
 
 function api() { return { headers: { Authorization: `Bearer ${localStorage.getItem('sm_token')}` } } }
 
@@ -93,11 +95,6 @@ export default function ActivityLog() {
 
   const allActions = [...new Set(logs.map(l => l.action))]
 
-  function fmt(d) {
-    if (!d) return '—'
-    return new Date(d).toLocaleDateString('en-AU') + ' ' +
-           new Date(d).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })
-  }
 
   return (
     <div style={{ padding: 28 }}>
@@ -125,14 +122,22 @@ export default function ActivityLog() {
 
       {/* Filters row */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <select value={userFilter} onChange={e => setUserFilter(e.target.value)} style={{ ...inp2, minWidth: 160 }}>
-          <option value="">All Users</option>
-          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <select value={actionFilter} onChange={e => setActionFilter(e.target.value)} style={{ ...inp2, minWidth: 180 }}>
-          <option value="">All Actions</option>
-          {allActions.map(a => <option key={a} value={a}>{ACTION_META[a]?.label || a}</option>)}
-        </select>
+        <div style={{ width: 180 }}>
+          <SearchSelect
+            value={userFilter}
+            onChange={v => setUserFilter(v)}
+            options={users.map(u => ({ value: u.id, label: u.name }))}
+            placeholder="All Users"
+          />
+        </div>
+        <div style={{ width: 210 }}>
+          <SearchSelect
+            value={actionFilter}
+            onChange={v => setActionFilter(v)}
+            options={allActions.map(a => ({ value: a, label: ACTION_META[a]?.label || a }))}
+            placeholder="All Actions"
+          />
+        </div>
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'rgba(232,234,242,0.4)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inp2, paddingLeft: 28, width: 200 }} />
@@ -168,7 +173,7 @@ export default function ActivityLog() {
                     <td style={{ padding: '9px 14px', fontSize: 11, color: 'rgba(232,234,242,0.5)', whiteSpace: 'nowrap' }}>{fmt(log.created_at)}</td>
                     <td style={{ padding: '9px 14px', fontSize: 12, color: '#e8eaf2', fontWeight: 600 }}>{log.user_name || '—'}</td>
                     <td style={{ padding: '9px 14px' }}>
-                      <span style={{ background: `${meta.color}18`, color: meta.color, padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{meta.label}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: meta.color, fontSize: 10, fontWeight: 600 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />{meta.label}</span>
                     </td>
                     <td style={{ padding: '9px 14px' }}>
                       {log.entity_name && <div style={{ fontSize: 12, fontWeight: 600, color: '#e8eaf2' }}>{log.entity_name}</div>}

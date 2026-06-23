@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MUSE — Editorial Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════
+   MUSE — EDITORIAL CONCEPT MOCKUP
+   Light/editorial theme only (the branded surface). Concept, not wired.
+   Playfair Display = the voice · Inter = the workhorse · JetBrains Mono = data
+   Wine = ink · Parchment = paper · Gold = the precious detail
+   ════════════════════════════════════════════════════════════ */
+:root{
+  --paper:#f2f0e6;        /* parchment — page */
+  --card:#fbf9f1;         /* cloud dancer — cards */
+  --card-2:#f6f3e9;       /* slightly toned panel */
+  --ink:#1b0905;          /* deep shadow — text */
+  --ink-soft:#5a3a36;     /* warmed clay-shadow — secondary */
+  --ink-mute:#8a7a72;     /* muted */
+  --wine:#612428;         /* wine stain — brand ink */
+  --wine-deep:#4d1c20;
+  --wine-line:rgba(97,36,40,.16);
+  --gold:#c8a85e;         /* metallic gold — precious accent */
+  --gold-deep:#a8863f;
+  --olive:#4f5e34;        /* success */
+  --amber:#8a6d1f;        /* attention */
+  --orange:#b4530a;       /* low */
+  --red:#a01b1b;          /* danger / out */
+  --red-soft:#c0392b;     /* critical */
+  --mulberry:#6b3f6e;     /* info / major client */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+/* paper grain */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* ── shared editorial atoms ──────────────────────────────── */
+.serif{font-family:'Playfair Display',serif}
+.mono{font-family:'JetBrains Mono',monospace}
+.eyebrow{
+  font-size:10.5px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.26em;color:var(--ink-soft);
+}
+.gold-rule{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);border:0}
+.ornament{display:flex;align-items:center;gap:14px;color:var(--gold-deep)}
+.ornament::before,.ornament::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,transparent,var(--gold) 60%,transparent)}
+.ornament span{font-size:10px;letter-spacing:.32em;text-transform:uppercase;white-space:nowrap}
+
+.pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:700;
+  letter-spacing:.04em;
+}
+.pill svg{width:11px;height:11px}
+.pill.ok{background:rgba(107,120,77,.12);color:var(--olive)}
+.pill.att{background:rgba(200,168,94,.16);color:var(--amber)}
+.pill.low{background:rgba(180,83,10,.10);color:var(--orange)}
+.pill.crit{background:rgba(192,57,43,.10);color:var(--red-soft)}
+.pill.out{background:rgba(160,27,27,.10);color:var(--red)}
+.pill.info{background:rgba(107,63,110,.10);color:var(--mulberry)}
+.pill.wine{background:rgba(97,36,40,.10);color:var(--wine)}
+
+.btn{
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+  padding:11px 22px;border-radius:9px;border:1px solid transparent;cursor:pointer;
+  transition:all .2s ease;letter-spacing:.02em;
+}
+.btn-wine{
+  background:linear-gradient(135deg,var(--wine-deep),var(--wine));
+  color:#f4ead6;border-color:rgba(97,36,40,.4);
+  box-shadow:0 2px 10px rgba(97,36,40,.22),inset 0 1px 0 rgba(200,168,94,.25);
+}
+.btn-wine:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(97,36,40,.3),inset 0 1px 0 rgba(200,168,94,.4)}
+.btn-ghost{background:transparent;border-color:var(--wine-line);color:var(--ink-soft)}
+.btn-ghost:hover{border-color:rgba(97,36,40,.4);background:rgba(97,36,40,.04)}
+
+.card{
+  background:var(--card);border:1px solid var(--wine-line);border-radius:14px;
+  box-shadow:0 2px 14px rgba(27,9,5,.05);position:relative;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:12%;right:12%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(200,168,94,.5),transparent);
+}
+
+/* ── concept chrome (the mockup's own top bar, not the app) ── */
+.frame-bar{
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:28px;
+  padding:14px 34px;background:rgba(242,240,230,.86);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--wine-line);
+}
+.frame-bar .mark{font-family:'Playfair Display',serif;font-weight:800;font-size:20px;letter-spacing:.18em;color:var(--wine)}
+.frame-bar .mark small{font-size:9px;letter-spacing:.3em;color:var(--gold-deep);vertical-align:super;margin-left:2px}
+.tabs{display:flex;gap:4px;margin-left:8px}
+.tab{
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.16em;
+  padding:8px 16px;border-radius:8px;border:1px solid transparent;cursor:pointer;color:var(--ink-soft);background:none;font-family:inherit;
+  transition:all .2s;
+}
+.tab:hover{color:var(--wine)}
+.tab.active{color:var(--wine);border-color:var(--wine-line);background:var(--card)}
+.tab.active::after{content:'';display:block;height:1px;margin-top:6px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.frame-note{margin-left:auto;font-style:italic;font-family:'Playfair Display',serif;color:var(--ink-mute);font-size:13px}
+
+.screen{display:none;position:relative;z-index:1}
+.screen.active{display:block;animation:fade .5s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ═══════════════ 1 · LOGIN ═══════════════ */
+.login{min-height:calc(100vh - 57px);display:flex;align-items:center;justify-content:center;padding:40px 20px;position:relative;overflow:hidden}
+.login::after{content:'';position:absolute;top:50%;left:50%;width:760px;height:760px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(97,36,40,.06),transparent 68%);pointer-events:none}
+.login-inner{width:100%;max-width:440px;text-align:center;position:relative;z-index:1}
+.login .ornament{margin-bottom:30px}
+.wordmark{
+  font-family:'Playfair Display',serif;font-weight:800;color:var(--wine);
+  font-size:clamp(76px,13vw,128px);line-height:.9;letter-spacing:.04em;margin:0 0 6px;
+}
+.wordmark .dot{color:var(--gold-deep)}
+.tagline{font-size:11px;text-transform:uppercase;letter-spacing:.34em;color:var(--ink-soft);margin-bottom:38px}
+.login-card{padding:38px 40px 34px;text-align:left;border-radius:18px;margin-top:8px}
+.field{margin-bottom:20px}
+.field label{display:block;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-soft);margin-bottom:9px}
+.field input{
+  width:100%;padding:13px 16px;border-radius:10px;border:1px solid var(--wine-line);
+  background:#fff;color:var(--ink);font-family:'Inter';font-size:14px;outline:none;
+  box-shadow:inset 0 1px 2px rgba(27,9,5,.04);transition:.2s;
+}
+.field input:focus{border-color:rgba(97,36,40,.5);box-shadow:0 0 0 3px rgba(97,36,40,.1),0 0 16px rgba(200,168,94,.14)}
+.field input::placeholder{color:rgba(27,9,5,.32)}
+.login-card .btn-wine{width:100%;margin-top:6px;padding:14px}
+.forgot{display:block;text-align:center;margin-top:18px;font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:var(--wine);text-decoration:none}
+.forgot:hover{color:var(--gold-deep)}
+.login-foot{margin-top:34px;font-family:'Playfair Display',serif;font-style:italic;color:var(--ink-mute);font-size:14px}
+
+/* ═══════════════ app shell (dashboard + queue) ═══════════════ */
+.shell{display:grid;grid-template-columns:236px 1fr;min-height:calc(100vh - 57px)}
+.side{border-right:1px solid var(--wine-line);background:#efe9da;padding:30px 0;display:flex;flex-direction:column}
+.side .brand{padding:0 28px 26px;border-bottom:1px solid var(--wine-line);margin-bottom:22px}
+.side .brand b{font-family:'Playfair Display',serif;font-weight:800;font-size:26px;letter-spacing:.16em;color:var(--wine);display:block}
+.side .brand .dot{color:var(--gold-deep)}
+.side .brand span{font-size:8.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-mute)}
+.nav-sec{padding:0 16px;margin-bottom:6px}
+.nav-sec .eyebrow{padding:14px 12px 8px;display:block;font-size:9px;letter-spacing:.24em;color:var(--ink-mute)}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:9px;color:var(--ink-soft);font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;transition:.15s;position:relative}
+.nav-item svg{width:17px;height:17px;opacity:.8}
+.nav-item:hover{background:rgba(97,36,40,.05);color:var(--wine)}
+.nav-item.on{background:rgba(97,36,40,.09);color:var(--wine);font-weight:600}
+.nav-item.on::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:2px;border-radius:2px;background:linear-gradient(var(--gold),var(--gold-deep))}
+.side .me{margin-top:auto;padding:18px 28px 0;border-top:1px solid var(--wine-line);font-size:12px;color:var(--ink-soft)}
+.side .me b{color:var(--ink);font-weight:600}
+
+.main{padding:38px 46px 60px;position:relative}
+.page-head{margin-bottom:30px}
+.page-head .kicker{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+.page-head .num{font-family:'Playfair Display',serif;font-size:15px;color:var(--gold-deep);font-style:italic}
+.page-head h1{font-family:'Playfair Display',serif;font-weight:800;font-size:42px;color:var(--ink);letter-spacing:.005em;line-height:1.05}
+.page-head .sub{font-family:'Playfair Display',serif;font-style:italic;color:var(--ink-soft);font-size:16px;margin-top:8px}
+.head-rule{margin:22px 0 0;height:1px;background:linear-gradient(90deg,var(--wine-line),transparent)}
+
+/* KPI cards */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:40px}
+.kpi{padding:22px 24px 20px}
+.kpi .eyebrow{margin-bottom:14px}
+.kpi .val{font-family:'Playfair Display',serif;font-weight:800;font-size:46px;line-height:1;color:var(--ink);letter-spacing:.01em}
+.kpi .val.wine{color:var(--wine)}
+.kpi .foot{margin-top:12px;display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-soft)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* editorial section header */
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;margin:0 0 16px}
+.sec-head h2{font-family:'Playfair Display',serif;font-weight:700;font-size:22px;color:var(--ink)}
+.sec-head h2 i{color:var(--gold-deep);font-size:15px;font-weight:400;margin-right:8px}
+.sec-head a{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--wine);text-decoration:none;font-weight:600}
+
+/* editorial table */
+.etable{width:100%;border-collapse:collapse}
+.etable thead th{
+  text-align:left;font-size:9.5px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.2em;color:var(--ink-mute);padding:0 18px 12px;border-bottom:1px solid var(--wine-line);
+}
+.etable thead th.r{text-align:right}
+.etable tbody td{padding:16px 18px;border-bottom:1px solid rgba(97,36,40,.08);vertical-align:middle}
+.etable tbody tr:hover{background:rgba(97,36,40,.025)}
+.etable .name{font-weight:600;color:var(--ink);font-size:14px}
+.etable .meta{font-size:11.5px;color:var(--ink-mute);margin-top:2px}
+.etable .qty{font-family:'JetBrains Mono',monospace;font-weight:500;font-size:14px;color:var(--ink);text-align:right}
+.etable .sku{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-soft)}
+.r{text-align:right}
+
+/* queue cards */
+.qcard{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;padding:20px 24px;margin-bottom:14px}
+.qnum{font-family:'Playfair Display',serif;font-weight:700;font-size:30px;color:var(--wine);line-height:1;min-width:64px}
+.qnum small{display:block;font-family:'Inter';font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;margin-bottom:3px}
+.qbody h3{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:4px}
+.qbody .line{font-size:12px;color:var(--ink-soft);font-family:'JetBrains Mono',monospace}
+.qtags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.qact{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.qact .due{font-size:11px;color:var(--ink-mute);font-style:italic;font-family:'Playfair Display',serif}
+
+@media(max-width:920px){.shell{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.main{padding:28px 22px}}
+</style>
+</head>
+<body>
+
+<!-- concept chrome -->
+<div class="frame-bar">
+  <div class="mark">MUSE<small>◆</small></div>
+  <div class="tabs">
+    <button class="tab active" data-s="login">Login</button>
+    <button class="tab" data-s="dash">Dashboard</button>
+    <button class="tab" data-s="queue">Manufacturing Queue</button>
+  </div>
+  <div class="frame-note">Editorial concept — Playfair × Wine × Parchment</div>
+</div>
+
+<!-- ═══════════ 1 · LOGIN ═══════════ -->
+<section class="screen active" id="login">
+  <div class="login">
+    <div class="login-inner">
+      <div class="ornament"><span>Est. MMXXVI</span></div>
+      <h1 class="wordmark">MUSE<span class="dot">.</span></h1>
+      <p class="tagline">Scented Merchandise · Production</p>
+      <div class="card login-card">
+        <div class="field">
+          <label for="u">Account</label>
+          <input id="u" type="email" placeholder="name@muse.house" />
+        </div>
+        <div class="field">
+          <label for="p">Passphrase</label>
+          <input id="p" type="password" placeholder="••••••••••" />
+        </div>
+        <button class="btn btn-wine">Enter the atelier</button>
+        <a class="forgot" href="#">Lost your access?</a>
+      </div>
+      <p class="login-foot">An editorial house of scent.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 2 · DASHBOARD ═══════════ -->
+<section class="screen" id="dash">
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><b>MUSE<span class="dot">.</span></b><span>Production System</span></div>
+      <div class="nav-sec">
+        <span class="eyebrow">Overview</span>
+        <a class="nav-item on" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Stock</a>
+      </div>
+      <div class="nav-sec">
+        <span class="eyebrow">Production</span>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Production Orders</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 20h20M4 20V8l5-3 5 3v12M14 20v-7l5-2v9"/></svg>Manufacturing Queue</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>Packing Records</a>
+      </div>
+      <div class="me">Signed in as<br><b>Fabricio</b> · Atelier</div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div class="kicker"><span class="num">01</span><span class="eyebrow">Tuesday · 05 June 2026</span></div>
+        <h1>Dashboard</h1>
+        <p class="sub">What needs your hand today.</p>
+        <div class="head-rule"></div>
+      </div>
+
+      <div class="kpis">
+        <div class="card kpi"><span class="eyebrow">Active SKUs</span><div class="val">1,248</div><div class="foot"><span class="dot" style="background:var(--olive)"></span>Catalogue healthy</div></div>
+        <div class="card kpi"><span class="eyebrow">Out of stock</span><div class="val wine">12</div><div class="foot"><span class="dot" style="background:var(--red)"></span>Needs reorder</div></div>
+        <div class="card kpi"><span class="eyebrow">Low / Critical</span><div class="val">37</div><div class="foot"><span class="dot" style="background:var(--orange)"></span>Below minimum</div></div>
+        <div class="card kpi"><span class="eyebrow">Reserved</span><div class="val">284</div><div class="foot"><span class="dot" style="background:var(--mulberry)"></span>Held for orders</div></div>
+      </div>
+
+      <div class="sec-head"><h2><i>02 —</i>Needs attention</h2><a href="#">View stock →</a></div>
+      <div class="card" style="padding:6px 6px 0">
+        <table class="etable">
+          <thead><tr><th>Product</th><th>SKU</th><th class="r">Available</th><th class="r">Min</th><th class="r">Status</th></tr></thead>
+          <tbody>
+            <tr><td><div class="name">Noir Wine — 100ml EDP</div><div class="meta">Fragrance · Muse Signature</div></td><td class="sku">MUS0042</td><td class="qty">0</td><td class="qty">40</td><td class="r"><span class="pill out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7.9 7.9l8.2 8.2M16.1 7.9l-8.2 8.2"/><circle cx="12" cy="12" r="9"/></svg>OUT</span></td></tr>
+            <tr><td><div class="name">Parchment Candle — 220g</div><div class="meta">Candle · Home</div></td><td class="sku">MUS0118</td><td class="qty">6</td><td class="qty">60</td><td class="r"><span class="pill crit">CRITICAL</span></td></tr>
+            <tr><td><div class="name">Olive Leaf Reed Diffuser</div><div class="meta">Diffuser · Home</div></td><td class="sku">MUS0091</td><td class="qty">22</td><td class="qty">50</td><td class="r"><span class="pill low">LOW</span></td></tr>
+            <tr><td><div class="name">Gold Stain Gift Box — Large</div><div class="meta">Packaging</div></td><td class="sku">MUS0007</td><td class="qty">41</td><td class="qty">50</td><td class="r"><span class="pill att">ATTENTION</span></td></tr>
+            <tr><td><div class="name">Cloud Dancer Tester Set</div><div class="meta">Fragrance · Retail</div></td><td class="sku">MUS0203</td><td class="qty">160</td><td class="qty">80</td><td class="r"><span class="pill ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>SAFE</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ═══════════ 3 · MANUFACTURING QUEUE ═══════════ -->
+<section class="screen" id="queue">
+  <div class="shell">
+    <aside class="side">
+      <div class="brand"><b>MUSE<span class="dot">.</span></b><span>Production System</span></div>
+      <div class="nav-sec">
+        <span class="eyebrow">Overview</span>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Stock</a>
+      </div>
+      <div class="nav-sec">
+        <span class="eyebrow">Production</span>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Production Orders</a>
+        <a class="nav-item on" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 20h20M4 20V8l5-3 5 3v12M14 20v-7l5-2v9"/></svg>Manufacturing Queue</a>
+        <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>Packing Records</a>
+      </div>
+      <div class="me">Signed in as<br><b>Fabricio</b> · Atelier</div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div class="kicker"><span class="num">03</span><span class="eyebrow">6 orders awaiting the bench</span></div>
+        <h1>Manufacturing Queue</h1>
+        <p class="sub">What to make next, in order.</p>
+        <div class="head-rule"></div>
+      </div>
+
+      <div class="card qcard">
+        <div class="qnum"><small>No.</small>014</div>
+        <div class="qbody">
+          <h3>Noir Wine — 100ml EDP</h3>
+          <div class="line">×120 units · BOM MUS0042 · oil 1.2L + ethanol 9.4L</div>
+          <div class="qtags"><span class="pill info">MAJOR CLIENT</span><span class="pill ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>READY TO BUILD</span><span class="pill att">IN PRODUCTION</span></div>
+        </div>
+        <div class="qact"><span class="due">Due 09 Jun</span><button class="btn btn-wine">Start production</button></div>
+      </div>
+
+      <div class="card qcard">
+        <div class="qnum"><small>No.</small>015</div>
+        <div class="qbody">
+          <h3>Parchment Candle — 220g</h3>
+          <div class="line">×60 units · BOM MUS0118 · wax 13.2kg + wicks 60</div>
+          <div class="qtags"><span class="pill wine">MUSE INTERNAL</span><span class="pill out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7.9 7.9l8.2 8.2M16.1 7.9l-8.2 8.2"/><circle cx="12" cy="12" r="9"/></svg>MISSING WAX</span></div>
+        </div>
+        <div class="qact"><span class="due">Due 10 Jun</span><button class="btn btn-ghost">Reserve stock</button></div>
+      </div>
+
+      <div class="card qcard">
+        <div class="qnum"><small>No.</small>016</div>
+        <div class="qbody">
+          <h3>Olive Leaf Reed Diffuser</h3>
+          <div class="line">×40 units · BOM MUS0091 · base 4.0L + reeds 320</div>
+          <div class="qtags"><span class="pill ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>READY TO BUILD</span><span class="pill low">LABELS ETA 07 JUN</span></div>
+        </div>
+        <div class="qact"><span class="due">Due 12 Jun</span><button class="btn btn-wine">Start production</button></div>
+      </div>
+
+      <div class="card qcard" style="opacity:.62">
+        <div class="qnum" style="color:var(--ink-mute)"><small>No.</small>017</div>
+        <div class="qbody">
+          <h3>Gold Stain Gift Box — Large</h3>
+          <div class="line">×200 units · BOM MUS0007 · board + foil</div>
+          <div class="qtags"><span class="pill" style="background:rgba(27,9,5,.06);color:var(--ink-soft)">DRAFT</span></div>
+        </div>
+        <div class="qact"><span class="due">No due date</span><button class="btn btn-ghost">Open draft</button></div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<script>
+  const tabs=document.querySelectorAll('.tab'),screens=document.querySelectorAll('.screen');
+  tabs.forEach(t=>t.addEventListener('click',()=>{
+    tabs.forEach(x=>x.classList.remove('active'));t.classList.add('active');
+    screens.forEach(s=>s.classList.toggle('active',s.id===t.dataset.s));
+    window.scrollTo({top:0,behavior:'instant'});
+  }));
+</script>
+</body>
+</html>

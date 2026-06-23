@@ -1,12 +1,11 @@
 import { useState, useEffect, createContext, useContext } from 'react'
 import { Router, Route, Switch, useLocation } from 'wouter'
+import { Check, AlertTriangle, X } from 'lucide-react'
 import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import ChangePassword from './pages/ChangePassword.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import Products from './pages/Products.jsx'
 import StockManagement from './pages/StockManagement.jsx'
-import BOMViewer from './pages/BOMViewer.jsx'
 import Clients from './pages/Clients.jsx'
 import ProductionOrders from './pages/ProductionOrders.jsx'
 import ManufacturingQueue from './pages/ManufacturingQueue.jsx'
@@ -16,6 +15,19 @@ import ActivityLog from './pages/ActivityLog.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import Returns from './pages/Returns.jsx'
 import BarcodeScanner from './pages/BarcodeScanner.jsx'
+import PackingRecords from './pages/PackingRecords.jsx'
+import Suppliers from './pages/Suppliers.jsx'
+import MuseStock from './pages/MuseStock.jsx'
+import MuseProducts from './pages/MuseProducts.jsx'
+import MuseDashboard from './pages/MuseDashboard.jsx'
+import StandardCatalog from './pages/StandardCatalog.jsx'
+import ContainerTypes from './pages/ContainerTypes.jsx'
+import MajorClients from './pages/MajorClients.jsx'
+import MajorClientDetail from './pages/MajorClientDetail.jsx'
+import BOMScentedMerchandise from './pages/BOMScentedMerchandise.jsx'
+import StockScentedMerchandise from './pages/StockScentedMerchandise.jsx'
+import BOMMuse from './pages/BOMMuse.jsx'
+import ExternalProcessing from './pages/ExternalProcessing.jsx'
 
 // ─────────────────────────────────────────
 // AUTH CONTEXT
@@ -66,10 +78,10 @@ export default function App() {
     setUser(null)
   }
 
-  function addToast(message, type = 'success') {
+  function addToast(message, type = 'success', duration = 4000) {
     const id = Date.now()
     setToasts(prev => [...prev, { id, message, type }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration)
   }
 
   if (loading) {
@@ -84,7 +96,7 @@ export default function App() {
     <AuthContext.Provider value={{ user, login, logout }}>
       <ToastContext.Provider value={{ addToast }}>
         {/* Toast container */}
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column-reverse', gap: 8 }}>
           {toasts.map(t => (
             <div key={t.id} style={{
               background:
@@ -100,8 +112,8 @@ export default function App() {
               animation: 'slideIn 0.22s ease', maxWidth: 320,
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <span style={{ fontSize: 15 }}>
-                {t.type === 'error' ? '✕' : t.type === 'warning' ? '⚠' : '✓'}
+              <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {t.type === 'error' ? <X size={15} /> : t.type === 'warning' ? <AlertTriangle size={15} /> : <Check size={15} />}
               </span>
               {t.message}
             </div>
@@ -119,16 +131,29 @@ export default function App() {
                 <Route path="/" component={Dashboard} />
                 <Route path="/production-orders" component={ProductionOrders} />
                 <Route path="/manufacturing-queue" component={ManufacturingQueue} />
-                <Route path="/products" component={Products} />
+                <Route path="/products" component={StockManagement} />
                 <Route path="/stock" component={StockManagement} />
-                <Route path="/bom" component={BOMViewer} />
-                <Route path="/clients" component={Clients} />
+                <Route path="/customers" component={Clients} />
                 <Route path="/barcode" component={BarcodeScanner} />
                 <Route path="/incoming-orders" component={IncomingOrders} />
+                <Route path="/external-processing" component={ExternalProcessing} />
                 <Route path="/returns" component={Returns} />
                 <Route path="/transactions" component={TransactionHistory} />
                 <Route path="/activity-log" component={ActivityLog} />
                 <Route path="/users" component={UserManagement} />
+                <Route path="/packing-records" component={PackingRecords} />
+                <Route path="/suppliers" component={Suppliers} />
+                <Route path="/muse-stock" component={MuseStock} />
+                <Route path="/muse" component={MuseDashboard} />
+                <Route path="/muse/products" component={MuseProducts} />
+                <Route path="/container-types" component={ContainerTypes} />
+                <Route path="/fragrances" component={StockManagement} />
+                <Route path="/standard/catalog" component={StandardCatalog} />
+                <Route path="/major-clients" component={MajorClients} />
+                <Route path="/major-clients/:id" component={MajorClientDetail} />
+                <Route path="/bom-sm" component={BOMScentedMerchandise} />
+                <Route path="/sm-stock" component={StockScentedMerchandise} />
+                <Route path="/bom-muse" component={BOMMuse} />
                 <Route component={() => <PlaceholderPage title="Page Not Found" />} />
               </Switch>
             </Layout>
@@ -139,11 +164,11 @@ export default function App() {
   )
 }
 
-function PlaceholderPage({ title }) {
+function PlaceholderPage({ title, subtitle }) {
   return (
     <div style={{ padding: 32 }}>
       <h1 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 24, color: '#e8eaf2', marginBottom: 12 }}>{title}</h1>
-      <p style={{ color: 'rgba(232,234,242,0.45)', fontSize: 14 }}>This page is under construction.</p>
+      <p style={{ color: 'rgba(232,234,242,0.45)', fontSize: 14 }}>{subtitle || 'This page is under construction.'}</p>
     </div>
   )
 }

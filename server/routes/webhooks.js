@@ -1,0 +1,155 @@
+const express = require('express')
+const router = express.Router()
+const crypto = require('crypto')
+const { query, withTransaction } = require('../db')
+const { auth, auditLog } = require('../auth')
+const { enqueueDraftOrder } = require('../services/shopify-sync')
+
+const processingOrders = new Set()
+
+router.post('/webhook/shopify', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (process.env.SHOPIFY_WEBHOOK_SECRET) {
+    const hmac = req.headers['x-shopify-hmac-sha256']
+    const digest = crypto
+      .createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET)
+      .update(req.body)
+      .digest('base64')
+    if (!hmac || digest !== hmac) return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  res.status(200).json({ received: true })
+
+  try {
+    const topic = req.headers['x-shopify-topic']
+    if (topic !== 'orders/paid') return
+
+    const body = JSON.parse(req.body.toString())
+    const shopifyOrderId = body.id
+
+    if (processingOrders.has(shopifyOrderId)) return
+    processingOrders.add(shopifyOrderId)
+
+    try {
+      const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = 'orders/paid'`, [shopifyOrderId])
+      if (already.rows[0]) return
+
+      const prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.cart_token || shopifyOrderId])
+      if (prodOrder.rows[0]) {
+        const order = prodOrder.rows[0]
+        await withTransaction(async (client) => {
+          const tq = (text, params) => client.query(text, params)
+          const comps = await tq(`SELECT * FROM production_order_components WHERE production_order_id = $1 AND source = 'general_stock'`, [order.id])
+          for (const comp of comps.rows) {
+            if (comp.product_id) {
+              await tq(
+                `INSERT INTO stock_reservations (production_order_id, production_order_line_id, product_id, product_code, source, quantity_reserved, status)
+                 VALUES ($1,$2,$3,$4,'general_stock',$5,'reserved')
+                 ON CONFLICT (production_order_id, product_id) WHERE product_id IS NOT NULL AND client_stock_id IS NULL
+                 DO UPDATE SET quantity_reserved = stock_reservations.quantity_reserved + EXCLUDED.quantity_reserved`,
+                [order.id, comp.production_order_line_id, comp.product_id, comp.product_code, comp.quantity_required]
+              )
+            }
+          }
+          await tq(
+            `UPDATE production_orders SET status = 'confirmed', shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
+            [shopifyOrderId, body.order_number || body.name, order.id]
+          )
+        })
+        await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId })
+      }
+
+      await query(`INSERT INTO webhook_processed (shopify_order_id, webhook_type) VALUES ($1,'orders/paid')`, [shopifyOrderId])
+    } finally {
+      processingOrders.delete(shopifyOrderId)
+    }
+  } catch (e) {
+    console.error('[webhook]', e.message)
+  }
+})
+
+router.post('/shopify/draft-order', auth, async (req, res) => {
+  try {
+    const { production_order_id } = req.body
+    if (!process.env.SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      return res.status(503).json({ error: 'Shopify not configured' })
+    }
+
+    const order = await query(
+      `SELECT po.*, c.shopify_customer_id FROM production_orders po LEFT JOIN clients c ON po.client_id = c.id WHERE po.id = $1`,
+      [production_order_id]
+    )
+    if (!order.rows[0]) return res.status(404).json({ error: 'Order not found' })
+
+    const lines = await query(
+      `SELECT pol.*, pf.name as fragrance_name, master.name as master_name
+       FROM production_order_lines pol
+       LEFT JOIN products pf ON pol.fragrance_id = pf.id
+       LEFT JOIN products master ON master.product_code = pol.product_type AND master.is_master = true
+       WHERE pol.production_order_id = $1`,
+      [production_order_id]
+    )
+
+    const lineItems = lines.rows.map(l => ({
+      title: `${l.master_name || l.product_type.replace(/_/g, ' ')} — ${l.fragrance_name || 'N/A'}`,
+      quantity: l.quantity,
+      price: '0.00',
+      requires_shipping: true
+    }))
+
+    const draftOrder = {
+      draft_order: {
+        send_receipt: false,
+        send_invoice: false,
+        line_items: lineItems,
+        note: `SM Order: ${order.rows[0].order_number} | Due: ${order.rows[0].due_date || 'TBD'}`,
+        tags: 'SA Custom Orders'
+      }
+    }
+
+    if (order.rows[0].shopify_customer_id) {
+      draftOrder.draft_order.customer = { id: order.rows[0].shopify_customer_id }
+    }
+
+    const response = await fetch(
+      `https://${process.env.SHOPIFY_SHOP_DOMAIN}/admin/api/2025-01/draft_orders.json`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN },
+        body: JSON.stringify(draftOrder)
+      }
+    )
+
+    const data = await response.json()
+    if (!response.ok) {
+      // Shopify down — queue for retry instead of failing the user
+      await enqueueDraftOrder(production_order_id)
+      return res.json({ queued: true, message: 'Shopify unavailable — draft order queued for retry' })
+    }
+
+    await query(
+      `UPDATE production_orders SET shopify_draft_order_id = $1, status = 'confirmed', updated_at = NOW() WHERE id = $2`,
+      [data.draft_order.id, production_order_id]
+    )
+    res.json({ draft_order_id: data.draft_order.id, draft_order_url: data.draft_order.invoice_url })
+  } catch (e) {
+    // Network error — queue for retry
+    await enqueueDraftOrder(production_order_id).catch(() => {})
+    res.json({ queued: true, message: 'Shopify unreachable — draft order queued for retry' })
+  }
+})
+
+router.get('/shopify-sync/status', auth, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT status, COUNT(*) as count FROM pending_shopify_sync GROUP BY status`
+    )
+    const counts = { pending: 0, failed: 0, done: 0 }
+    result.rows.forEach(r => { counts[r.status] = parseInt(r.count) })
+    const failed = await query(
+      `SELECT id, action_type, attempts, last_error, created_at FROM pending_shopify_sync WHERE status = 'failed' ORDER BY created_at DESC LIMIT 20`
+    )
+    res.json({ counts, failed_items: failed.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+module.exports = router

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Plus, X, RotateCcw, Shield, User, Crown } from 'lucide-react'
+import { Plus, X, RotateCcw, Shield, User, Crown, Copy, Check } from 'lucide-react'
 import axios from 'axios'
+import Button from '../components/Button.jsx'
 import { useToast } from '../App.jsx'
 import { useAuth } from '../App.jsx'
+import { fmtDate as fmt } from '../utils/date.js'
 import ConfirmModal from '../components/ConfirmModal.jsx'
 
 function api() { return { headers: { Authorization: `Bearer ${localStorage.getItem('sm_token')}` } } }
@@ -13,7 +15,18 @@ const ROLE_META = {
   user:  { label: 'User',  color: '#60a5fa', bg: 'rgba(37,99,235,0.12)',  icon: User },
 }
 
-const EMPTY_FORM = { name: '', email: '', role: 'user' }
+const EMPTY_FORM = { name: '', role: 'user' }
+
+// Copy-to-clipboard button with a transient "Copied" state.
+function CopyBtn({ text }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button type="button" onClick={() => { try { navigator.clipboard?.writeText(text) } catch {} ; setCopied(true); setTimeout(() => setCopied(false), 1600) }}
+      className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+      {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+    </button>
+  )
+}
 
 export default function UserManagement() {
   const [users, setUsers]         = useState([])
@@ -24,6 +37,7 @@ export default function UserManagement() {
   const [saving, setSaving]       = useState(false)
   const [resetTarget, setResetTarget]   = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [credModal, setCredModal]       = useState(null) // { name, password, action }
   const { addToast } = useToast()
   const { user: currentUser } = useAuth()
 
@@ -39,18 +53,18 @@ export default function UserManagement() {
   }
 
   function openCreate() { setEditing(null); setForm(EMPTY_FORM); setShowModal(true) }
-  function openEdit(u)  { setEditing(u); setForm({ name: u.name, email: u.email, role: u.role }); setShowModal(true) }
+  function openEdit(u)  { setEditing(u); setForm({ name: u.name, role: u.role }); setShowModal(true) }
 
   async function handleSave() {
-    if (!form.name.trim() || !form.email.trim()) { addToast('Name and email required', 'error'); return }
+    if (!form.name.trim()) { addToast('Name is required', 'error'); return }
     setSaving(true)
     try {
       if (editing) {
         await axios.put(`/api/users/${editing.id}`, form, api())
         addToast('User updated')
       } else {
-        await axios.post('/api/users', form, api())
-        addToast(`User created — default password: #scent2026`)
+        const res = await axios.post('/api/users', form, api())
+        setCredModal({ name: form.name.trim(), password: res.data.temp_password, action: 'created' })
       }
       setShowModal(false)
       loadUsers()
@@ -60,8 +74,8 @@ export default function UserManagement() {
 
   async function handleReset() {
     try {
-      await axios.post(`/api/users/${resetTarget.id}/reset-password`, {}, api())
-      addToast(`Password reset to #scent2026 — user will be prompted to change`)
+      const res = await axios.post(`/api/users/${resetTarget.id}/reset-password`, {}, api())
+      setCredModal({ name: resetTarget.name, password: res.data.temp_password, action: 'reset' })
       setResetTarget(null)
     } catch (e) { addToast(e.response?.data?.error || 'Failed', 'error') }
   }
@@ -75,7 +89,6 @@ export default function UserManagement() {
     } catch (e) { addToast(e.response?.data?.error || 'Failed', 'error') }
   }
 
-  function fmt(d) { return d ? new Date(d).toLocaleDateString('en-AU') : '—' }
 
   return (
     <div style={{ padding: 28 }}>
@@ -84,9 +97,9 @@ export default function UserManagement() {
           <h1 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 22, color: '#e8eaf2' }}>User Management</h1>
           <p style={{ fontSize: 13, color: 'rgba(232,234,242,0.4)', marginTop: 4 }}>Root access only</p>
         </div>
-        <button onClick={openCreate} style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Button onClick={openCreate}>
           <Plus size={15} /> New User
-        </button>
+        </Button>
       </div>
 
       {/* Role legend */}
@@ -109,7 +122,7 @@ export default function UserManagement() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {['User', 'Email', 'Role', 'Status', 'Created', 'Actions'].map(h => (
+                {['User', 'Role', 'Status', 'Created', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
@@ -136,14 +149,13 @@ export default function UserManagement() {
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: 'rgba(232,234,242,0.6)' }}>{u.email}</td>
                     <td style={{ padding: '11px 14px' }}>
-                      <span style={{ background: rm.bg, color: rm.color, padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{rm.label}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: rm.color, fontSize: 11, fontWeight: 600 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: rm.color, flexShrink: 0 }} />{rm.label}</span>
                     </td>
                     <td style={{ padding: '11px 14px' }}>
                       {u.must_change_password
-                        ? <span style={{ background: 'rgba(245,158,11,0.12)', color: '#fbbf24', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>Must change password</span>
-                        : <span style={{ background: 'rgba(34,197,94,0.1)', color: '#4ade80', padding: '2px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>Active</span>
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#fbbf24', fontSize: 10, fontWeight: 600 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fbbf24', flexShrink: 0 }} />Must change password</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#4ade80', fontSize: 10, fontWeight: 600 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />Active</span>
                       }
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: 'rgba(232,234,242,0.4)' }}>{fmt(u.created_at)}</td>
@@ -175,46 +187,68 @@ export default function UserManagement() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
-          <div style={{ background: '#13132b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 32, width: '100%', maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-              <h2 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 17, color: '#e8eaf2' }}>{editing ? 'Edit User' : 'New User'}</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,234,242,0.5)' }}><X size={18} /></button>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editing ? 'Edit User' : 'New User'}</h2>
+              <button className="modal-close" onClick={() => setShowModal(false)}><X size={14} /></button>
             </div>
-
-            {!editing && (
-              <div style={{ marginBottom: 18, padding: '10px 14px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 8, fontSize: 12, color: '#60a5fa' }}>
-                Default password: <strong>#scent2026</strong> — user will be prompted to change on first login
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <F label="Full Name *">
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inp} autoFocus />
-              </F>
-              <F label="Email *">
-                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@..." style={inp} />
-              </F>
-              <F label="Role">
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {Object.entries(ROLE_META).map(([key, m]) => (
-                    <button key={key} onClick={() => setForm(f => ({ ...f, role: key }))} style={{
-                      flex: 1, background: form.role === key ? m.bg : 'rgba(255,255,255,0.04)',
-                      border: form.role === key ? `1px solid ${m.color}60` : '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: 8, padding: '8px 0', cursor: 'pointer',
-                      color: form.role === key ? m.color : 'rgba(232,234,242,0.45)',
-                      fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
-                    }}>
-                      <m.icon size={12} /> {m.label}
-                    </button>
-                  ))}
+            <div className="modal-body">
+              {!editing && (
+                <div style={{ marginBottom: 18, padding: '10px 14px', background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 8, fontSize: 12, color: '#60a5fa' }}>
+                  A random temporary password will be shown after creation. User must change it on first login.
                 </div>
-              </F>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <F label="Full Name *">
+                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" style={inp} autoFocus />
+                </F>
+                <F label="Role">
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {Object.entries(ROLE_META).map(([key, m]) => (
+                      <button key={key} onClick={() => setForm(f => ({ ...f, role: key }))} style={{
+                        flex: 1, background: form.role === key ? m.bg : 'rgba(255,255,255,0.04)',
+                        border: form.role === key ? `1px solid ${m.color}60` : '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 8, padding: '8px 0', cursor: 'pointer',
+                        color: form.role === key ? m.color : 'rgba(232,234,242,0.45)',
+                        fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
+                      }}>
+                        <m.icon size={12} /> {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </F>
+              </div>
             </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Create User'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
-              <Btn onClick={() => setShowModal(false)}>Cancel</Btn>
-              <Btn primary onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Create User'}</Btn>
+      {credModal && (
+        <div className="modal-overlay" onClick={() => setCredModal(null)}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>{credModal.action === 'created' ? 'User created' : 'Password reset'}</h2>
+                <p>{credModal.name} — temporary password</p>
+              </div>
+              <button className="modal-close" onClick={() => setCredModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 14, fontSize: 13, color: 'var(--text-secondary)' }}>
+                Share this with the user — they'll be asked to change it on first login.
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                <code style={{ flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 17, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--text-primary)', background: 'var(--field-bg)', border: '1px solid var(--border)', borderRadius: 9, padding: '12px 14px', userSelect: 'all', display: 'flex', alignItems: 'center' }}>{credModal.password}</code>
+                <CopyBtn text={credModal.password} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <Button onClick={() => setCredModal(null)}>Done</Button>
             </div>
           </div>
         </div>
@@ -223,7 +257,7 @@ export default function UserManagement() {
       {resetTarget && (
         <ConfirmModal
           title="Reset Password"
-          message={`Reset ${resetTarget.name}'s password to #scent2026? They will be prompted to change it on next login.`}
+          message={`Reset ${resetTarget.name}'s password? A new temporary password will be generated. They will be prompted to change it on next login.`}
           onConfirm={handleReset}
           onCancel={() => setResetTarget(null)}
           danger={false}

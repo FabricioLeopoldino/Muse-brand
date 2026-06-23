@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MU:SE — Refined Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════
+   MU:SE — REFINED / "PERFECT" CONCEPT
+   Luxury = air + restraint + thin monoline icons.
+   Less ink, more space. Status whispers (dot + label), never shouts.
+   Borderless where possible — hairlines & typography do the work.
+   ════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f3f1e8; --surface:#fbf9f1; --surface-2:#efece1;
+  --ink:#1b0905; --ink-soft:#6a544c; --ink-mute:#a2928789;
+  --line:rgba(97,36,40,.12); --line-2:rgba(97,36,40,.07);
+  --wine:#612428; --wine-text:#5a2429;
+  --gold:#a8863f; --gold-line:#c8a85e;
+  --ok:#4f5e34; --att:#8a6d1f; --low:#b4530a; --crit:#c0392b; --out:#a01b1b; --info:#6b3f6e;
+  --shadow:0 1px 2px rgba(27,9,5,.04), 0 8px 24px rgba(27,9,5,.05);
+}
+.dark{
+  --bg:#16110f; --surface:#1e1815; --surface-2:#241d19;
+  --ink:#f1e9df; --ink-soft:#b6a89d; --ink-mute:#8a7a6e;
+  --line:rgba(241,233,223,.10); --line-2:rgba(241,233,223,.05);
+  --wine:#c97a80; --wine-text:#d98a8f;
+  --gold:#d4b574; --gold-line:rgba(212,181,116,.55);
+  --ok:#9bb077; --att:#d4b574; --low:#e0954a; --crit:#e0726a; --out:#e0726a; --info:#b58bb8;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 40px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;transition:background .4s,color .4s}
+.serif{font-family:'Playfair Display',serif}
+.mono{font-family:'JetBrains Mono',monospace}
+svg{display:block}
+.ic{width:20px;height:20px;stroke:currentColor;stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ic-sm{width:15px;height:15px;stroke-width:1.4}
+
+.eyebrow{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.28em;color:var(--ink-mute)}
+.gold-num{font-family:'Playfair Display',serif;font-style:italic;color:var(--gold);font-size:14px}
+
+/* ── concept top bar ── */
+.bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:26px;padding:16px 40px;background:color-mix(in srgb, var(--bg) 86%, transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line-2)}
+.bar .lede{display:flex;align-items:center;gap:10px}
+.colon{display:inline-flex;flex-direction:column;gap:5px}
+.colon i{width:6px;height:6px;border-radius:50%;background:var(--wine);display:block}
+.bar b{font-family:'Playfair Display',serif;font-weight:700;font-size:18px;letter-spacing:.12em;color:var(--ink)}
+.tabs{display:flex;gap:2px}
+.tab{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.16em;padding:8px 16px;border:0;background:none;color:var(--ink-mute);cursor:pointer;font-family:inherit;transition:color .2s}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--wine-text)}
+.tab.on::after{content:'';display:block;height:1px;margin-top:7px;background:var(--gold-line)}
+.bar .right{margin-left:auto;display:flex;align-items:center;gap:18px;color:var(--ink-soft)}
+.toggle{background:none;border:1px solid var(--line);border-radius:999px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:var(--ink-soft);transition:.2s}
+.toggle:hover{border-color:var(--wine);color:var(--wine-text)}
+
+.screen{display:none}.screen.on{display:block;animation:fade .5s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── app shell ── */
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 67px)}
+.side{padding:34px 0;border-right:1px solid var(--line-2)}
+.side .brand{display:flex;align-items:center;gap:11px;padding:0 26px 28px}
+.side .brand .colon i{width:7px;height:7px}
+.side .brand b{font-family:'Playfair Display',serif;font-weight:700;font-size:17px;letter-spacing:.1em;color:var(--ink);line-height:1}
+.side .brand small{display:block;font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-mute);font-family:'Inter';font-weight:500;margin-top:4px}
+.navsec{padding:0 16px}
+.navsec .eyebrow{padding:18px 12px 9px;display:block;font-size:8.5px;letter-spacing:.2em}
+.nav{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:8px;color:var(--ink-soft);font-size:13px;font-weight:400;text-decoration:none;cursor:pointer;transition:.15s}
+.nav:hover{color:var(--ink)}
+.nav.on{color:var(--wine-text);font-weight:500}
+.nav.on .ic{color:var(--wine)}
+.nav .gd{margin-left:auto;width:5px;height:5px;border-radius:50%;background:var(--gold);opacity:0}
+.nav.on .gd{opacity:1}
+
+.main{padding:46px 56px 80px;max-width:1140px}
+.head{margin-bottom:46px}
+.head .row{display:flex;align-items:baseline;gap:13px;margin-bottom:10px}
+.head h1{font-family:'Playfair Display',serif;font-weight:700;font-size:40px;letter-spacing:.01em;color:var(--ink);line-height:1}
+.head .sub{font-family:'Playfair Display',serif;font-style:italic;color:var(--ink-soft);font-size:17px}
+.rule{height:1px;background:linear-gradient(90deg,var(--gold-line),transparent 45%);margin-top:24px}
+
+/* ── KPIs — borderless, hairline-divided, airy ── */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);margin:0 0 60px}
+.kpi{padding:4px 28px}
+.kpi+.kpi{border-left:1px solid var(--line)}
+.kpi:first-child{padding-left:0}
+.kpi .eyebrow{margin-bottom:16px}
+.kpi .n{font-family:'Playfair Display',serif;font-weight:700;font-size:52px;line-height:.9;color:var(--ink)}
+.kpi .n.accent{color:var(--wine-text)}
+.kpi .u{display:flex;align-items:center;gap:7px;margin-top:14px;font-size:12px;color:var(--ink-soft)}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+
+/* ── section ── */
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 6px}
+.sec h2{font-family:'Playfair Display',serif;font-weight:600;font-size:21px;color:var(--ink)}
+.sec a{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-mute);text-decoration:none;display:flex;align-items:center;gap:6px}
+.sec a:hover{color:var(--wine-text)}
+
+/* ── list (borderless rows, hairline dividers) ── */
+.list{margin-top:8px}
+.li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:32px;padding:20px 4px;border-top:1px solid var(--line-2)}
+.li:hover{background:linear-gradient(90deg,transparent,var(--surface-2) 50%,transparent)}
+.li .nm{font-size:14.5px;font-weight:500;color:var(--ink)}
+.li .mt{font-size:11.5px;color:var(--ink-mute);margin-top:3px;font-family:'JetBrains Mono'}
+.li .q{font-family:'JetBrains Mono';font-size:14px;color:var(--ink-soft);text-align:right}
+.li .q b{color:var(--ink);font-weight:500}
+.st{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:500;letter-spacing:.02em;min-width:118px}
+.st .dot{width:7px;height:7px}
+
+/* ── queue rows ── */
+.q{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:30px;padding:26px 4px;border-top:1px solid var(--line-2)}
+.q .no{font-family:'Playfair Display',serif;font-weight:600;font-size:34px;color:var(--wine-text);line-height:1;min-width:70px}
+.q .no small{display:block;font-family:'Inter';font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-mute);font-weight:500;margin-bottom:5px}
+.q h3{font-size:15.5px;font-weight:500;color:var(--ink);margin-bottom:5px}
+.q .det{font-size:12px;color:var(--ink-mute);font-family:'JetBrains Mono'}
+.q .tags{display:flex;gap:18px;margin-top:12px}
+.q .act{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+.q .due{font-family:'Playfair Display',serif;font-style:italic;font-size:12px;color:var(--ink-mute)}
+.go{display:inline-flex;align-items:center;gap:8px;background:none;border:0;font-family:'Inter';font-size:12.5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--wine-text);cursor:pointer;padding:0;transition:gap .2s}
+.go:hover{gap:13px}
+.go.ghost{color:var(--ink-mute)}
+.muted{opacity:.5}
+
+@media(max-width:880px){.shell{grid-template-columns:1fr}.side{display:none}.kpis{grid-template-columns:repeat(2,1fr);gap:24px 0}.main{padding:32px 24px}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="lede"><span class="colon"><i></i><i></i></span><b>MU:SE</b></div>
+  <div class="tabs">
+    <button class="tab on" data-s="dash">Dashboard</button>
+    <button class="tab" data-s="queue">Manufacturing Queue</button>
+  </div>
+  <div class="right">
+    <span class="serif" style="font-style:italic;font-size:13px">Refined concept</span>
+    <button class="toggle" id="tg" title="Toggle theme">
+      <svg class="ic-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<section class="screen on" id="dash">
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="colon"><i></i><i></i></span>
+        <div><b>MU:SE</b><small>Scented Merchandise</small></div>
+      </div>
+      <div class="navsec">
+        <a class="nav on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard<span class="gd"></span></a>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5M12 12v10"/></svg>Stock</a>
+        <span class="eyebrow">Production</span>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Production Orders</a>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21V9l5-3 5 3M13 21V11l5-2 3 2v10M3 21h18"/></svg>Manufacturing Queue</a>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M5 8l7-4 7 4v8l-7 4-7-4V8z"/><path d="M9 11l2 2 4-4"/></svg>Packing Records</a>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="head">
+        <div class="row"><span class="gold-num">01</span><span class="eyebrow">Tuesday · 5 June 2026</span></div>
+        <h1>Dashboard</h1>
+        <p class="sub">What needs your hand today.</p>
+        <div class="rule"></div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="eyebrow">Active SKUs</div><div class="n">1,248</div><div class="u"><span class="dot" style="background:var(--ok)"></span>Catalogue healthy</div></div>
+        <div class="kpi"><div class="eyebrow">Out of stock</div><div class="n accent">12</div><div class="u"><span class="dot" style="background:var(--out)"></span>Needs reorder</div></div>
+        <div class="kpi"><div class="eyebrow">Low / Critical</div><div class="n">37</div><div class="u"><span class="dot" style="background:var(--low)"></span>Below minimum</div></div>
+        <div class="kpi"><div class="eyebrow">Reserved</div><div class="n">284</div><div class="u"><span class="dot" style="background:var(--info)"></span>Held for orders</div></div>
+      </div>
+
+      <div class="sec"><h2><span class="gold-num">02&nbsp;&nbsp;</span>Needs attention</h2><a>View stock <svg class="ic-sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+      <div class="list">
+        <div class="li"><div><div class="nm">Noir Wine — 100ml EDP</div><div class="mt">MUS0042 · Fragrance</div></div><div class="q"><b>0</b> / 40</div><div class="st" style="color:var(--out)"><span class="dot" style="background:var(--out)"></span>Out of stock</div></div>
+        <div class="li"><div><div class="nm">Parchment Candle — 220g</div><div class="mt">MUS0118 · Candle</div></div><div class="q"><b>6</b> / 60</div><div class="st" style="color:var(--crit)"><span class="dot" style="background:var(--crit)"></span>Critical</div></div>
+        <div class="li"><div><div class="nm">Olive Leaf Reed Diffuser</div><div class="mt">MUS0091 · Diffuser</div></div><div class="q"><b>22</b> / 50</div><div class="st" style="color:var(--low)"><span class="dot" style="background:var(--low)"></span>Low stock</div></div>
+        <div class="li"><div><div class="nm">Gold Stain Gift Box — Large</div><div class="mt">MUS0007 · Packaging</div></div><div class="q"><b>41</b> / 50</div><div class="st" style="color:var(--att)"><span class="dot" style="background:var(--att)"></span>Attention</div></div>
+        <div class="li"><div><div class="nm">Cloud Dancer Tester Set</div><div class="mt">MUS0203 · Fragrance</div></div><div class="q"><b>160</b> / 80</div><div class="st" style="color:var(--ok)"><span class="dot" style="background:var(--ok)"></span>Safe</div></div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<!-- ═══ MANUFACTURING QUEUE ═══ -->
+<section class="screen" id="queue">
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="colon"><i></i><i></i></span>
+        <div><b>MU:SE</b><small>Scented Merchandise</small></div>
+      </div>
+      <div class="navsec">
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5M12 12v10"/></svg>Stock</a>
+        <span class="eyebrow">Production</span>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Production Orders</a>
+        <a class="nav on"><svg class="ic" viewBox="0 0 24 24"><path d="M3 21V9l5-3 5 3M13 21V11l5-2 3 2v10M3 21h18"/></svg>Manufacturing Queue<span class="gd"></span></a>
+        <a class="nav"><svg class="ic" viewBox="0 0 24 24"><path d="M5 8l7-4 7 4v8l-7 4-7-4V8z"/><path d="M9 11l2 2 4-4"/></svg>Packing Records</a>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="head">
+        <div class="row"><span class="gold-num">03</span><span class="eyebrow">6 orders awaiting the bench</span></div>
+        <h1>Manufacturing Queue</h1>
+        <p class="sub">What to make next, in order.</p>
+        <div class="rule"></div>
+      </div>
+
+      <div class="list" style="margin-top:18px">
+        <div class="q">
+          <div class="no"><small>No.</small>014</div>
+          <div><h3>Noir Wine — 100ml EDP</h3><div class="det">×120 · MUS0042 · oil 1.2L + ethanol 9.4L</div>
+            <div class="tags"><span class="st" style="min-width:0;color:var(--info)"><span class="dot" style="background:var(--info)"></span>Major client</span><span class="st" style="min-width:0;color:var(--ok)"><span class="dot" style="background:var(--ok)"></span>Ready to build</span></div></div>
+          <div class="act"><span class="due">Due 9 Jun</span><button class="go">Start production <svg class="ic-sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+        <div class="q">
+          <div class="no"><small>No.</small>015</div>
+          <div><h3>Parchment Candle — 220g</h3><div class="det">×60 · MUS0118 · wax 13.2kg + wicks 60</div>
+            <div class="tags"><span class="st" style="min-width:0;color:var(--ink-mute)"><span class="dot" style="background:var(--ink-mute)"></span>MUSE internal</span><span class="st" style="min-width:0;color:var(--out)"><span class="dot" style="background:var(--out)"></span>Missing wax</span></div></div>
+          <div class="act"><span class="due">Due 10 Jun</span><button class="go ghost">Reserve stock <svg class="ic-sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+        <div class="q">
+          <div class="no"><small>No.</small>016</div>
+          <div><h3>Olive Leaf Reed Diffuser</h3><div class="det">×40 · MUS0091 · base 4.0L + reeds 320</div>
+            <div class="tags"><span class="st" style="min-width:0;color:var(--ok)"><span class="dot" style="background:var(--ok)"></span>Ready to build</span><span class="st" style="min-width:0;color:var(--low)"><span class="dot" style="background:var(--low)"></span>Labels ETA 7 Jun</span></div></div>
+          <div class="act"><span class="due">Due 12 Jun</span><button class="go">Start production <svg class="ic-sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+        <div class="q muted">
+          <div class="no" style="color:var(--ink-mute)"><small>No.</small>017</div>
+          <div><h3>Gold Stain Gift Box — Large</h3><div class="det">×200 · MUS0007 · board + foil</div>
+            <div class="tags"><span class="st" style="min-width:0;color:var(--ink-mute)"><span class="dot" style="background:var(--ink-mute)"></span>Draft</span></div></div>
+          <div class="act"><span class="due">No due date</span><button class="go ghost">Open draft <svg class="ic-sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</section>
+
+<script>
+  const tabs=document.querySelectorAll('.tab'),scr=document.querySelectorAll('.screen')
+  tabs.forEach(t=>t.onclick=()=>{tabs.forEach(x=>x.classList.remove('on'));t.classList.add('on');scr.forEach(s=>s.classList.toggle('on',s.id===t.dataset.s));window.scrollTo(0,0)})
+  const moon='<svg class="ic-sm" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+  const sun=document.getElementById('tg').innerHTML
+  document.getElementById('tg').onclick=function(){const d=document.body.classList.toggle('dark');this.innerHTML=d?moon:sun}
+</script>
+</body>
+</html>

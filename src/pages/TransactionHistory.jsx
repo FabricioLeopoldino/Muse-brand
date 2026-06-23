@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { Download, Search } from 'lucide-react'
 import axios from 'axios'
 import { useToast } from '../App.jsx'
+import SearchSelect from '../components/SearchSelect.jsx'
+import { InfoIcon } from '../components/Tooltip.jsx'
+import { fmt as fmtDT } from '../utils/date.js'
 
 function api() { return { headers: { Authorization: `Bearer ${localStorage.getItem('sm_token')}` } } }
 
@@ -79,13 +82,11 @@ export default function TransactionHistory() {
     finally { setLoading(false) }
   }
 
-  function exportExcel() {
+  function exportCSV() {
     try {
-      const XLSX = window.XLSX
-      if (!XLSX) { addToast('Excel export not available', 'error'); return }
       const rows = displayed.map(t => ({
-        Date: new Date(t.created_at).toLocaleDateString('en-AU'),
-        Time: new Date(t.created_at).toLocaleTimeString('en-AU'),
+        Date: fmtDT(t.created_at),
+        Time: '',
         Type: TYPE_META[t.type]?.label || t.type,
         Product: t.product_name,
         Code: t.product_code,
@@ -96,11 +97,24 @@ export default function TransactionHistory() {
         Notes: t.notes || '',
         User: t.user_name || '',
       }))
-      const ws = XLSX.utils.json_to_sheet(rows)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Transactions')
+      if (!rows.length) { addToast('No data to export', 'error'); return }
+      const headers = Object.keys(rows[0])
+      const csv = [
+        headers.join(','),
+        ...rows.map(row => headers.map(h => {
+          const val = String(row[h] ?? '')
+          return val.includes(',') || val.includes('"') || val.includes('\n')
+            ? `"${val.replace(/"/g, '""')}"` : val
+        }).join(','))
+      ].join('\n')
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
       const label = preset === 'all' ? 'AllTime' : preset
-      XLSX.writeFile(wb, `SM_Transactions_${label}_${new Date().toISOString().split('T')[0]}.xlsx`)
+      a.download = `SM_Transactions_${label}_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch (e) { addToast('Export failed: ' + e.message, 'error') }
   }
 
@@ -117,8 +131,8 @@ export default function TransactionHistory() {
     <div style={{ padding: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 22, color: '#e8eaf2' }}>Transaction History</h1>
-        <button onClick={exportExcel} style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 8, padding: '8px 16px', color: '#4ade80', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Download size={14} /> Export Excel
+        <button onClick={exportCSV} style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: 8, padding: '8px 16px', color: '#4ade80', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Download size={14} /> Export CSV
         </button>
       </div>
 
@@ -143,20 +157,25 @@ export default function TransactionHistory() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
         {CATEGORIES.map(c => (
           <button key={c} onClick={() => setCatFilter(c)} style={{
-            background: catFilter === c ? (CAT_COLORS[c] || '#22c55e') : 'rgba(255,255,255,0.04)',
-            color: catFilter === c ? (c === 'ALL' ? 'white' : '#0e0e1a') : 'rgba(232,234,242,0.5)',
-            border: catFilter === c ? 'none' : '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 20, padding: '4px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer'
+            background: catFilter === c ? 'var(--accent-soft)' : 'var(--surface-2)',
+            color: catFilter === c ? 'var(--accent-text)' : 'var(--text-secondary)',
+            border: catFilter === c ? '1px solid var(--border-h)' : '1px solid var(--border)',
+            borderRadius: 20, padding: '4px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer'
           }}>{c.replace('_', ' ')}</button>
         ))}
       </div>
 
       {/* Type + search filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{ ...inp2, minWidth: 180 }}>
-          <option value="">All Types</option>
-          {allTypes.map(t => <option key={t} value={t}>{TYPE_META[t]?.label || t}</option>)}
-        </select>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
+        <div style={{ width: 200 }}>
+          <SearchSelect
+            value={typeFilter}
+            onChange={v => setTypeFilter(v)}
+            options={allTypes.map(t => ({ value: t, label: TYPE_META[t]?.label || t }))}
+            placeholder="All Types"
+          />
+        </div>
+        <InfoIcon text={'Transaction types:\n• Add Stock — manual stock in\n• Remove Stock — manual stock out\n• Adjustment — inventory correction\n• Production Debit — consumed in production\n• PO Received — purchase order received\n• Ready Formula In — leftover formula added\n• Ready Formula Used — ready formula consumed\n• Reserved — stock reserved for an order\n• Reservation Released — reservation cancelled\n• Return — returned to stock'} maxWidth={300} position="right" />
         <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(232,234,242,0.4)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search product or notes..." style={{ ...inp2, paddingLeft: 30, width: '100%' }} />
@@ -196,11 +215,10 @@ export default function TransactionHistory() {
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <td style={{ padding: '9px 14px', fontSize: 12, color: 'rgba(232,234,242,0.6)', whiteSpace: 'nowrap' }}>
-                      {new Date(t.created_at).toLocaleDateString('en-AU')}
-                      <div style={{ fontSize: 10, color: 'rgba(232,234,242,0.3)' }}>{new Date(t.created_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</div>
+                      {fmtDT(t.created_at)}
                     </td>
                     <td style={{ padding: '9px 14px' }}>
-                      <span style={{ background: `${meta.color}18`, color: meta.color, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 700 }}>{meta.label}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: meta.color, fontSize: 10, fontWeight: 600 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />{meta.label}</span>
                     </td>
                     <td style={{ padding: '9px 14px' }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#e8eaf2' }}>{t.product_name || '—'}</div>

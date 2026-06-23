@@ -1,50 +1,65 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Search, Edit2, Trash2, X, ChevronDown, Package, Beaker, Layers, FlaskConical, TrendingUp, Printer } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, X, ChevronDown, Package, Beaker, Layers, FlaskConical, TrendingUp, Printer, ImageIcon, Paperclip } from 'lucide-react'
+import AttachmentsModal from '../components/AttachmentsModal.jsx'
+import { splitVolume } from '../utils/volume.js'
+import { InfoIcon } from '../components/Tooltip.jsx'
+import MlHint from '../components/MlHint.jsx'
 import axios from 'axios'
 import JsBarcode from 'jsbarcode'
+import { useInkColor } from '../utils/theme.js'
+import IconButton from '../components/IconButton.jsx'
+import Button from '../components/Button.jsx'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import ConfirmModal from '../components/ConfirmModal.jsx'
 import { useToast } from '../App.jsx'
+import SearchSelect from '../components/SearchSelect.jsx'
 
 function api() { return { headers: { Authorization: `Bearer ${localStorage.getItem('sm_token')}` } } }
 
 const CATEGORIES = [
   { key: 'ALL', label: 'All' },
   { key: 'FRAGRANCE', label: 'Fragrance', unit: 'ml', barcode: false },
-  { key: 'RAW_MATERIALS', label: 'Raw Materials', barcode: true },
-  { key: 'COMPONENTS', label: 'Components', unit: 'units', barcode: true },
-  { key: 'FINISHED_GOODS', label: 'Finished Goods', unit: 'units', barcode: true },
+  { key: 'RAW_MATERIAL', label: 'Raw Material', barcode: true },
+  { key: 'COMPONENT', label: 'Component', unit: 'units', barcode: true },
+  { key: 'LABEL', label: 'Label', unit: 'units', barcode: false },
+  { key: 'FINISHED_GOOD', label: 'Finished Good', unit: 'units', barcode: true },
   { key: 'READY_FORMULA', label: 'Ready Formula', unit: 'ml', barcode: false },
+  { key: 'CLIENT_STOCK', label: 'Reserved Stock', unit: 'units', barcode: false },
 ]
 
 const CAT_COLORS = {
   FRAGRANCE: '#a78bfa',
-  RAW_MATERIALS: '#fbbf24',
-  COMPONENTS: '#60a5fa',
-  FINISHED_GOODS: '#4ade80',
+  RAW_MATERIAL: '#fbbf24',
+  COMPONENT: '#60a5fa',
+  LABEL: '#f472b6',
+  FINISHED_GOOD: '#4ade80',
   READY_FORMULA: '#fb923c',
+  CLIENT_STOCK: '#a78bfa',
 }
 
 const EMPTY_FORM = {
   name: '', product_code: '', category: 'FRAGRANCE', sub_category: '',
   unit: 'ml', current_stock: '', min_stock_level: '',
   supplier: '', supplier_code: '', bin_location: '', barcode: '',
-  lead_time: '', notes: ''
+  lead_time: '', notes: '', image_data: '', client_id: '',
+  volume_ml: '', default_oil_pct: '',
 }
 
 function requiresBarcode(cat) {
-  return ['RAW_MATERIALS', 'COMPONENTS', 'FINISHED_GOODS'].includes(cat)
+  return ['RAW_MATERIAL', 'COMPONENT', 'FINISHED_GOOD'].includes(cat)
 }
 
 function defaultUnit(cat) {
   if (cat === 'FRAGRANCE' || cat === 'READY_FORMULA') return 'ml'
-  if (cat === 'RAW_MATERIALS') return 'ml'
+  if (cat === 'RAW_MATERIAL') return 'ml'
   return 'units'
 }
 
 export default function Products() {
   const [products, setProducts] = useState([])
   const [filter, setFilter] = useState('ALL')
+  const [hasAttachments, setHasAttachments] = useState(false)
+  const [hideMasters, setHideMasters] = useState(false)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -53,26 +68,53 @@ export default function Products() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [suppliers, setSuppliers] = useState([])
+  const [clients, setClients] = useState([])
   const [strengthTarget, setStrengthTarget] = useState(null)
   const [strengthLog, setStrengthLog] = useState([])
   const [strengthLoading, setStrengthLoading] = useState(false)
   const [barcodeTarget, setBarcodeTarget] = useState(null)
   const [barcodeCopies, setBarcodeCopies] = useState(1)
+  const [seqSuggestion, setSeqSuggestion] = useState(null)
+  const [photoModal, setPhotoModal] = useState(null)
+  const [attachModal, setAttachModal] = useState(null)
+  const [clientStock, setClientStock] = useState([])
+  const [clientLabels, setClientLabels] = useState([])
   const svgRef = useRef(null)
+  const imageInputRef = useRef(null)
   const { addToast } = useToast()
 
-  useEffect(() => { loadProducts(); loadSuppliers() }, [])
+  useEffect(() => { loadProducts(); loadSuppliers(); loadClients() }, [])
+  useEffect(() => { if (filter === 'CLIENT_STOCK') loadClientStock() }, [filter])
+  useEffect(() => { if (filter === 'LABEL' || filter === 'ALL') loadClientLabels() }, [filter])
 
   async function loadProducts() {
     setLoading(true)
     try {
       const params = {}
-      if (filter !== 'ALL') params.category = filter
+      if (filter !== 'ALL' && filter !== 'CLIENT_STOCK') params.category = filter
       if (search) params.search = search
+      if (hasAttachments) params.has_attachments = '1'
       const res = await axios.get('/api/products', { ...api(), params })
       setProducts(res.data)
     } catch { addToast('Failed to load products', 'error') }
     finally { setLoading(false) }
+  }
+
+  async function loadClientStock() {
+    setLoading(true)
+    try {
+      const params = search ? { search } : {}
+      const res = await axios.get('/api/client-stock', { ...api(), params })
+      setClientStock(res.data)
+    } catch { addToast('Failed to load reserved stock', 'error') }
+    finally { setLoading(false) }
+  }
+
+  async function loadClientLabels() {
+    try {
+      const res = await axios.get('/api/client-labels', api())
+      setClientLabels(res.data)
+    } catch {}
   }
 
   async function loadSuppliers() {
@@ -80,6 +122,43 @@ export default function Products() {
       const res = await axios.get('/api/suppliers', api())
       setSuppliers(res.data)
     } catch {}
+  }
+
+  async function loadClients() {
+    try {
+      const res = await axios.get('/api/clients', api())
+      setClients(res.data)
+    } catch {}
+  }
+
+  function resizeImage(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        const img = new Image()
+        img.onload = () => {
+          const MAX = 900
+          let w = img.width, h = img.height
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX }
+            else { w = Math.round(w * MAX / h); h = MAX }
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = w; canvas.height = h
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/jpeg', 0.7))
+        }
+        img.src = e.target.result
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleImageFile(file) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) { addToast('Please select an image file', 'error'); return }
+    const base64 = await resizeImage(file)
+    setForm(f => ({ ...f, image_data: base64 }))
   }
 
   function openBarcode(product) {
@@ -138,7 +217,33 @@ export default function Products() {
     finally { setStrengthLoading(false) }
   }
 
-  useEffect(() => { loadProducts() }, [filter, search])
+  useEffect(() => { loadProducts() }, [filter, search, hasAttachments])
+
+  useEffect(() => {
+    if (editing || !showModal) { setSeqSuggestion(null); return }
+    const SEEDS = {
+      FRAGRANCE:     { prefix: 'FRAG_',     pad: 5, suffix: '' },
+      RAW_MATERIAL:  { prefix: 'RAW_',      pad: 5, suffix: '' },
+      COMPONENT:     { prefix: 'COMP_',     pad: 5, suffix: '' },
+      LABEL:         { prefix: 'LABEL_',    pad: 5, suffix: '' },
+      FINISHED_GOOD: { prefix: 'FG_',       pad: 5, suffix: '' },
+      READY_FORMULA: { prefix: 'RF-FRAG_',  pad: 5, suffix: '' },
+      MAJOR_CLIENT:  { prefix: 'LC_',       pad: 5, suffix: '' },
+    }
+    const extract = str => { const m = str?.match(/(\D*[-_])(\d+)(\D*)$/); return m ? { prefix: m[1], num: parseInt(m[2]), pad: m[2].length, suffix: m[3] } : null }
+    const catProducts = products.filter(p => p.category === form.category)
+    const parsed = catProducts.map(p => extract(p.product_code)).filter(Boolean).sort((a, b) => b.num - a.num)[0]
+    if (parsed) {
+      const last = catProducts.find(p => extract(p.product_code)?.num === parsed.num)?.product_code
+      const suggested = parsed.prefix + String(parsed.num + 1).padStart(parsed.pad, '0') + parsed.suffix
+      setSeqSuggestion({ last, suggested })
+    } else if (SEEDS[form.category]) {
+      const s = SEEDS[form.category]
+      setSeqSuggestion({ last: null, suggested: s.prefix + '00001'.slice(-s.pad).padStart(s.pad, '0') + s.suffix })
+    } else {
+      setSeqSuggestion(null)
+    }
+  }, [form.category, showModal, editing])
 
   function openCreate() {
     setEditing(null)
@@ -162,6 +267,10 @@ export default function Products() {
       barcode: product.barcode || '',
       lead_time: product.lead_time || '',
       notes: product.notes || '',
+      image_data: product.image_data || '',
+      client_id: product.client_id || '',
+      volume_ml: product.volume_ml ?? '',
+      default_oil_pct: product.default_oil_pct ?? '',
     })
     setShowModal(true)
   }
@@ -173,6 +282,9 @@ export default function Products() {
   async function handleSave() {
     if (!form.name.trim()) { addToast('Name is required', 'error'); return }
     if (!form.product_code.trim()) { addToast('Product code is required', 'error'); return }
+    if (form.category === 'MAJOR_CLIENT' && !form.client_id) {
+      addToast('Major Client is required for this category', 'error'); return
+    }
     if (requiresBarcode(form.category) && !form.barcode.trim()) {
       addToast(`Barcode is required for ${form.category}`, 'error'); return
     }
@@ -183,6 +295,7 @@ export default function Products() {
         current_stock: parseFloat(form.current_stock) || 0,
         min_stock_level: parseFloat(form.min_stock_level) || 0,
         lead_time: parseInt(form.lead_time) || null,
+        client_id: form.client_id ? parseInt(form.client_id) : null,
       }
       if (editing) {
         await axios.put(`/api/products/${editing.id}`, payload, api())
@@ -209,37 +322,86 @@ export default function Products() {
     }
   }
 
-  const displayed = products.filter(p =>
-    (filter === 'ALL' || p.category === filter) &&
-    (!search || p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.product_code.toLowerCase().includes(search.toLowerCase()) ||
-      (p.barcode || '').toLowerCase().includes(search.toLowerCase()))
-  )
+  const mappedClientLabels = (filter === 'LABEL' || filter === 'ALL') ? clientLabels
+    .filter(cl => !search || cl.label_name?.toLowerCase().includes(search.toLowerCase()) || cl.client_name?.toLowerCase().includes(search.toLowerCase()))
+    .map(cl => ({
+      id: `cl_${cl.id}`,
+      _is_client_label: true,
+      _client_label_id: cl.id,
+      category: 'LABEL',
+      name: `${cl.label_name} ${cl.artwork_version}`,
+      supplier: cl.client_name,
+      product_code: `CL_${String(cl.id).padStart(5, '0')}`,
+      current_stock: cl.quantity,
+      reserved_qty: 0,
+      min_stock_level: 0,
+      unit: 'units',
+      barcode: null,
+      bin_location: null,
+      image_data: null,
+    })) : []
+
+  // A master = FG product with no parent (template, no stock)
+  // A variant = FG product with master_product_id (has stock)
+  function isMaster(p) {
+    return p.is_master || (p.category === 'FINISHED_GOOD' && !p.master_product_id && !p.fragrance_id)
+  }
+  function isVariant(p) {
+    return p.category === 'FINISHED_GOOD' && p.master_product_id
+  }
+
+  const displayed = [
+    ...products.filter(p =>
+      (filter === 'ALL' || p.category === filter) &&
+      (!hideMasters || !isMaster(p)) &&
+      (!search || p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.product_code.toLowerCase().includes(search.toLowerCase()) ||
+        (p.barcode || '').toLowerCase().includes(search.toLowerCase()))
+    ),
+    ...mappedClientLabels,
+  ]
 
   return (
     <div style={{ padding: 28 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <h1 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 22, color: '#e8eaf2' }}>Products</h1>
-        <button onClick={openCreate} style={{
-          background: '#2563eb', color: 'white', border: 'none', borderRadius: 8,
-          padding: '9px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 6
-        }}>
-          <Plus size={15} /> New Product
-        </button>
+        {filter !== 'CLIENT_STOCK' && (
+          <Button onClick={openCreate}>
+            <Plus size={15} /> New Product
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {CATEGORIES.map(c => (
           <button key={c.key} onClick={() => setFilter(c.key)} style={{
-            background: filter === c.key ? (CAT_COLORS[c.key] || '#22c55e') : 'rgba(255,255,255,0.05)',
-            color: filter === c.key ? (c.key === 'ALL' ? 'white' : '#0e0e1a') : 'rgba(232,234,242,0.6)',
-            border: filter === c.key ? 'none' : '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 20, padding: '5px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer'
+            background: filter === c.key ? 'var(--accent-soft)' : 'var(--surface-2)',
+            color: filter === c.key ? 'var(--accent-text)' : 'var(--text-secondary)',
+            border: filter === c.key ? '1px solid var(--border-h)' : '1px solid var(--border)',
+            borderRadius: 20, padding: '5px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer'
           }}>{c.label}</button>
         ))}
+        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+        <button onClick={() => setHasAttachments(v => !v)} style={{
+          background: hasAttachments ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.05)',
+          color: hasAttachments ? '#60a5fa' : 'rgba(232,234,242,0.6)',
+          border: hasAttachments ? '1px solid rgba(96,165,250,0.4)' : '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 20, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5
+        }}>
+          <Paperclip size={11} /> Has Attachments
+        </button>
+        <button onClick={() => setHideMasters(v => !v)} title="Hide master products (templates without stock)" style={{
+          background: hideMasters ? 'rgba(232,121,249,0.15)' : 'rgba(255,255,255,0.05)',
+          color: hideMasters ? '#e879f9' : 'rgba(232,234,242,0.6)',
+          border: hideMasters ? '1px solid rgba(232,121,249,0.4)' : '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 20, padding: '5px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5
+        }}>
+          Hide Masters
+        </button>
       </div>
 
       {/* Search */}
@@ -255,22 +417,77 @@ export default function Products() {
         />
       </div>
 
-      {/* Table */}
-      {loading ? (
+      {/* CLIENT_STOCK Table */}
+      {filter === 'CLIENT_STOCK' && (loading ? (
         <div style={{ color: 'rgba(232,234,242,0.4)', fontSize: 14 }}>Loading...</div>
       ) : (
         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                {['Category', 'Name', 'Code', 'Stock', 'Min Level', 'Bin', 'Barcode', 'Actions'].map(h => (
+                {['Client', 'Product Name', 'Code', 'Stock', 'Unit', 'Category'].map(h => (
                   <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
+              {clientStock.length === 0 ? (
+                <tr><td colSpan={6} style={{ padding: '32px 14px', textAlign: 'center', color: 'rgba(232,234,242,0.3)', fontSize: 13 }}>No reserved stock found</td></tr>
+              ) : clientStock.filter(cs => !search || cs.product_name?.toLowerCase().includes(search.toLowerCase()) || cs.product_code?.toLowerCase().includes(search.toLowerCase()) || cs.client_name?.toLowerCase().includes(search.toLowerCase())).map(cs => (
+                <tr key={cs.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <td style={{ padding: '10px 14px', fontSize: 12, color: '#a78bfa', fontWeight: 600 }}>{cs.client_name || '—'}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: '#e8eaf2' }}>{cs.product_name}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(232,234,242,0.6)', fontFamily: 'monospace' }}>{cs.product_code}</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: cs.quantity <= 0 ? '#f87171' : '#4ade80' }}>{Number(cs.quantity).toLocaleString()}</span>
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(232,234,242,0.5)' }}>{cs.unit}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 11, color: 'rgba(232,234,242,0.5)' }}>{cs.category || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: 'rgba(232,234,242,0.35)' }}>
+            {clientStock.length} item{clientStock.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+      ))}
+
+      {/* Products Table */}
+      {filter !== 'CLIENT_STOCK' && (loading ? (
+        <div style={{ color: 'rgba(232,234,242,0.4)', fontSize: 14 }}>Loading...</div>
+      ) : (
+        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                {[
+                  { key: 'Category', label: 'Category' },
+                  { key: 'Name', label: 'Name' },
+                  { key: 'Code', label: 'Code' },
+                  { key: 'Total Stock', label: 'Total Stock', tip: 'Total quantity in warehouse, including stock reserved for active production orders.' },
+                  { key: 'Reserved', label: 'Reserved', tip: 'Quantity committed to confirmed production orders. Hover over cells to see details per order.' },
+                  { key: 'Available', label: 'Available', tip: 'Total Stock − Reserved. Quantity available for new orders.' },
+                  { key: 'Min Level', label: 'Min Level', tip: 'Minimum stock level. Orange alert when Available ≤ Min Level.' },
+                  { key: 'Bin', label: 'Bin' },
+                  { key: 'Barcode', label: 'Barcode' },
+                  { key: 'Actions', label: 'Actions' },
+                ].map(h => (
+                  <th key={h.key} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      {h.label}
+                      {h.tip && <InfoIcon text={h.tip} maxWidth={260} />}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {displayed.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: '32px 14px', textAlign: 'center', color: 'rgba(232,234,242,0.3)', fontSize: 13 }}>No products found</td></tr>
+                <tr><td colSpan={10} style={{ padding: '32px 14px', textAlign: 'center', color: 'rgba(232,234,242,0.3)', fontSize: 13 }}>No products found</td></tr>
               ) : displayed.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.1s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
@@ -283,20 +500,94 @@ export default function Products() {
                     }}>{p.category.replace('_', ' ')}</span>
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eaf2' }}>{p.name}</div>
-                    {p.supplier && <div style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>{p.supplier}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {p.image_data ? (
+                        <img
+                          src={p.image_data} alt=""
+                          onClick={() => setPhotoModal(p)}
+                          title="Click to enlarge"
+                          style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.12)', flexShrink: 0, cursor: 'zoom-in' }}
+                        />
+                      ) : (
+                        <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <ImageIcon size={12} color="rgba(232,234,242,0.2)" />
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#e8eaf2' }}>{p.name}</div>
+                          {isMaster(p) && (
+                            <span style={{ background: 'rgba(232,121,249,0.15)', color: '#e879f9', padding: '1px 7px', borderRadius: 20, fontSize: 9, fontWeight: 700, letterSpacing: 0.4 }}>MASTER</span>
+                          )}
+                          {isVariant(p) && (
+                            <span style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', padding: '1px 7px', borderRadius: 20, fontSize: 9, fontWeight: 700, letterSpacing: 0.4 }}>VARIANT</span>
+                          )}
+                          {(() => {
+                            const cur = parseFloat(p.current_stock)
+                            const min = parseFloat(p.min_stock_level)
+                            const isOut = cur <= 0
+                            const isLow = !isOut && min > 0 && cur < min
+                            if (!isOut && !isLow) return null
+                            const color = isOut ? '#f87171' : '#fbbf24'
+                            return <span title={isOut ? 'Out of stock' : 'Below min level'} style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, boxShadow: `0 0 4px ${color}` }} />
+                          })()}
+                        </div>
+                        {p.supplier && <div style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>{p.supplier}</div>}
+                      </div>
+                    </div>
                   </td>
                   <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(232,234,242,0.6)', fontFamily: 'monospace' }}>{p.product_code}</td>
                   <td style={{ padding: '10px 14px' }}>
-                    <span style={{
-                      fontSize: 13, fontWeight: 700,
-                      color: p.current_stock <= 0 ? '#f87171' : p.current_stock <= p.min_stock_level ? '#fbbf24' : '#4ade80'
-                    }}>
-                      {Number(p.current_stock).toLocaleString()} {p.unit === 'ml' && Number(p.current_stock) >= 1000 ? `(${(p.current_stock / 1000).toFixed(2)}L)` : p.unit}
-                    </span>
+                    {(() => {
+                      const cur = parseFloat(p.current_stock)
+                      const min = parseFloat(p.min_stock_level)
+                      const isOut = cur <= 0
+                      const isLow = !isOut && min > 0 && cur < min
+                      const disp = splitVolume(cur, p.unit)
+                      return (
+                        <>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isOut ? '#f87171' : isLow ? '#fbbf24' : '#4ade80' }}>
+                            {disp.value}
+                          </span>
+                          <span style={{ fontSize: 10, color: 'rgba(232,234,242,0.4)', marginLeft: 4 }}>{disp.unit}</span>
+                        </>
+                      )
+                    })()}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    {(() => {
+                      const reserved = parseFloat(p.reserved_qty) || 0
+                      if (reserved === 0) return <span style={{ fontSize: 12, color: 'rgba(232,234,242,0.3)' }}>—</span>
+                      const details = Array.isArray(p.reservation_detail) ? p.reservation_detail : []
+                      const reservedDisp = splitVolume(reserved, p.unit)
+                      const tip = details.map(d => {
+                        const ds = splitVolume(d.qty, p.unit)
+                        return `${d.order_number || 'Order'}: ${ds.value} ${ds.unit}`
+                      }).join('\n')
+                      return (
+                        <span title={tip} style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', cursor: details.length ? 'help' : 'default', borderBottom: details.length ? '1px dashed rgba(251,191,36,0.4)' : 'none' }}>
+                          {reservedDisp.value} {reservedDisp.unit}
+                        </span>
+                      )
+                    })()}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    {(() => {
+                      const avail = parseFloat(p.current_stock) - (parseFloat(p.reserved_qty) || 0)
+                      const min = parseFloat(p.min_stock_level)
+                      const isOut = avail <= 0
+                      const isLow = !isOut && min > 0 && avail < min
+                      const availDisp = splitVolume(avail, p.unit)
+                      return (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isOut ? '#f87171' : isLow ? '#fbbf24' : '#4ade80' }}>
+                          {availDisp.value}
+                          <span style={{ fontSize: 10, color: 'rgba(232,234,242,0.4)', marginLeft: 4 }}>{availDisp.unit}</span>
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(232,234,242,0.5)' }}>
-                    {p.min_stock_level > 0 ? `${Number(p.min_stock_level).toLocaleString()} ${p.unit}` : '—'}
+                    {p.min_stock_level > 0 ? (() => { const s = splitVolume(p.min_stock_level, p.unit); return `${s.value} ${s.unit}` })() : '—'}
                   </td>
                   <td style={{ padding: '10px 14px', fontSize: 12, color: 'rgba(232,234,242,0.5)' }}>{p.bin_location || '—'}</td>
                   <td style={{ padding: '10px 14px', fontSize: 11, color: 'rgba(232,234,242,0.5)', fontFamily: 'monospace' }}>
@@ -305,21 +596,30 @@ export default function Products() {
                   <td style={{ padding: '10px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {p.category === 'FRAGRANCE' && (
-                        <button onClick={() => openStrengthLog(p)} title="Oil % History" style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#a78bfa' }}>
-                          <TrendingUp size={13} />
-                        </button>
+                        <IconButton onClick={() => openStrengthLog(p)} title="Oil % History"><TrendingUp size={13} /></IconButton>
                       )}
-                      {p.barcode && (
-                        <button onClick={() => openBarcode(p)} title="Print Barcode" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#10b981' }}>
-                          <Printer size={13} />
-                        </button>
+                      {['FRAGRANCE','FINISHED_GOOD'].includes(p.category) && (
+                        <IconButton onClick={() => setAttachModal(p)} title={`Attachments${p.attachment_count > 0 ? ` (${p.attachment_count})` : ''}`} style={{ position: 'relative' }}>
+                          <Paperclip size={13} />
+                          {p.attachment_count > 0 && (
+                            <span style={{ position: 'absolute', top: -3, right: -3, background: 'var(--accent)', color: '#fff', borderRadius: '50%', width: 14, height: 14, fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                              {p.attachment_count > 9 ? '9+' : p.attachment_count}
+                            </span>
+                          )}
+                        </IconButton>
                       )}
-                      <button onClick={() => openEdit(p)} style={{ background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#60a5fa' }}>
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => setDeleteTarget(p)} style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.25)', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#f87171' }}>
-                        <Trash2 size={13} />
-                      </button>
+                      {!p._is_client_label && p.barcode && (
+                        <IconButton onClick={() => openBarcode(p)} title="Print Barcode"><Printer size={13} /></IconButton>
+                      )}
+                      {!p._is_client_label && (
+                        <IconButton onClick={() => openEdit(p)} title="Edit product"><Edit2 size={13} /></IconButton>
+                      )}
+                      {!p._is_client_label && (
+                        <IconButton variant="danger" onClick={() => setDeleteTarget(p)} title="Delete product"><Trash2 size={13} /></IconButton>
+                      )}
+                      {p._is_client_label && (
+                        <span style={{ fontSize: 10, color: 'rgba(232,234,242,0.3)', fontStyle: 'italic' }}>client label</span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -330,29 +630,20 @@ export default function Products() {
             {displayed.length} product{displayed.length !== 1 ? 's' : ''}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
-          <div style={{
-            background: '#13132b', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 14, padding: 32, width: '100%', maxWidth: 560,
-            maxHeight: '90vh', overflowY: 'auto'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h2 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 17, color: '#e8eaf2' }}>
-                {editing ? 'Edit Product' : 'New Product'}
-              </h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,234,242,0.5)' }}>
-                <X size={18} />
-              </button>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editing ? 'Edit Product' : 'New Product'}</h2>
+              <button className="modal-close" onClick={() => setShowModal(false)}><X size={14} /></button>
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <Field label="Category" full>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {CATEGORIES.filter(c => c.key !== 'ALL').map(c => (
+                  {CATEGORIES.filter(c => c.key !== 'ALL' && c.key !== 'CLIENT_STOCK').map(c => (
                     <button key={c.key} onClick={() => handleCategoryChange(c.key)} style={{
                       background: form.category === c.key ? `${CAT_COLORS[c.key]}25` : 'rgba(255,255,255,0.05)',
                       border: form.category === c.key ? `1px solid ${CAT_COLORS[c.key]}` : '1px solid rgba(255,255,255,0.1)',
@@ -369,29 +660,51 @@ export default function Products() {
 
               <Field label="Product Code *">
                 <Input value={form.product_code} onChange={v => setForm(f => ({ ...f, product_code: v.toUpperCase() }))} placeholder="e.g. FRAG-001" mono />
+                {seqSuggestion && (
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {seqSuggestion.last && (
+                      <span style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>Last: <code style={{ color: 'rgba(232,234,242,0.6)' }}>{seqSuggestion.last}</code></span>
+                    )}
+                    <button type="button" onClick={() => setForm(f => ({ ...f, product_code: seqSuggestion.suggested }))}
+                      style={{ background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 5, padding: '2px 10px', fontSize: 11, fontWeight: 700, color: '#60a5fa', cursor: 'pointer' }}>
+                      Use {seqSuggestion.suggested}
+                    </button>
+                  </div>
+                )}
               </Field>
 
               <Field label="Unit">
-                <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} style={selectStyle}>
-                  <option value="ml">ml</option>
-                  <option value="units">units</option>
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                </select>
+                <SearchSelect
+                  value={form.unit}
+                  onChange={v => setForm(f => ({ ...f, unit: v }))}
+                  options={[
+                    { value: 'ml', label: 'ml' },
+                    { value: 'units', label: 'units' },
+                    { value: 'kg', label: 'kg' },
+                    { value: 'g', label: 'g' },
+                  ]}
+                  clearable={false}
+                />
               </Field>
 
               {!editing && (
                 <Field label="Initial Stock">
                   <Input type="number" value={form.current_stock} onChange={v => setForm(f => ({ ...f, current_stock: v }))} placeholder="0" />
+                  <MlHint value={form.current_stock} unit={form.unit} />
                 </Field>
               )}
 
               <Field label="Min Stock Level">
                 <Input type="number" value={form.min_stock_level} onChange={v => setForm(f => ({ ...f, min_stock_level: v }))} placeholder="0" />
+                <MlHint value={form.min_stock_level} unit={form.unit} />
               </Field>
 
-              <Field label={`Barcode${requiresBarcode(form.category) ? ' *' : ''}`}>
-                <Input value={form.barcode} onChange={v => setForm(f => ({ ...f, barcode: v }))} placeholder="Scan or type..." mono />
+              <Field label={`Barcode${requiresBarcode(form.category) ? ' *' : ''}`} full>
+                <BarcodeField
+                  value={form.barcode}
+                  productCode={form.product_code}
+                  onChange={v => setForm(f => ({ ...f, barcode: v }))}
+                />
               </Field>
 
               <Field label="Bin Location">
@@ -414,6 +727,29 @@ export default function Products() {
                 <Input value={form.sub_category} onChange={v => setForm(f => ({ ...f, sub_category: v }))} placeholder="Optional" />
               </Field>
 
+
+              {['FINISHED_GOOD', 'READY_FORMULA'].includes(form.category) && (
+                <Field label="Volume (ml)">
+                  <Input type="number" min={0} step="any" value={form.volume_ml} onChange={v => setForm(f => ({ ...f, volume_ml: v }))} placeholder="e.g. 100" />
+                  <MlHint value={form.volume_ml} unit="ml" />
+                </Field>
+              )}
+              {form.category === 'FRAGRANCE' && (
+                <Field label="Default Oil %">
+                  <Input type="number" min={0} max={100} step="any" value={form.default_oil_pct} onChange={v => setForm(f => ({ ...f, default_oil_pct: v }))} placeholder="e.g. 25" />
+                </Field>
+              )}
+              {form.category === 'MAJOR_CLIENT' && (
+                <Field label="Major Client *" full>
+                  <SearchSelect
+                    value={form.client_id}
+                    onChange={v => setForm(f => ({ ...f, client_id: v }))}
+                    options={clients.filter(c => c.is_large_client).map(c => ({ value: c.id, label: c.name }))}
+                    placeholder="— Select Major Client —"
+                  />
+                </Field>
+              )}
+
               <Field label="Notes" full>
                 <textarea
                   value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
@@ -421,19 +757,40 @@ export default function Products() {
                   style={{ ...inputStyle, resize: 'vertical', width: '100%' }}
                 />
               </Field>
+
+              <Field label="Product Photo" full>
+                <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => handleImageFile(e.target.files[0])} />
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  {form.image_data ? (
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <img src={form.image_data} alt="Product" style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.15)' }} />
+                      <button onClick={() => setForm(f => ({ ...f, image_data: '' }))} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#dc2626', border: 'none', color: 'white', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+                    </div>
+                  ) : (
+                    <div style={{ width: 80, height: 80, borderRadius: 8, background: 'rgba(255,255,255,0.04)', border: '2px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ImageIcon size={22} color="rgba(232,234,242,0.2)" />
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <button onClick={() => imageInputRef.current?.click()} style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.3)', borderRadius: 8, padding: '8px 16px', color: '#60a5fa', fontSize: 12, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ImageIcon size={13} /> {form.image_data ? 'Change Photo' : 'Upload Photo'}
+                    </button>
+                    <div style={{ fontSize: 11, color: 'rgba(232,234,242,0.3)', marginTop: 6 }}>JPG, PNG, WEBP — auto-resized to 900px</div>
+                  </div>
+                </div>
+              </Field>
             </div>
 
             {requiresBarcode(form.category) && !form.barcode && (
-              <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, fontSize: 12, color: '#f87171' }}>
+              <div style={{ gridColumn: '1 / -1', marginTop: 12, padding: '8px 12px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8, fontSize: 12, color: '#f87171' }}>
                 ⚠ Barcode is required for {form.category.replace('_', ' ')}
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24 }}>
-              <button onClick={() => setShowModal(false)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 20px', color: '#e8eaf2', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={saving} style={{ background: '#2563eb', border: 'none', borderRadius: 8, padding: '9px 20px', color: 'white', fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: saving ? 0.7 : 1 }}>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Product'}
               </button>
             </div>
@@ -443,44 +800,33 @@ export default function Products() {
 
       {/* Barcode Print Modal */}
       {barcodeTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
-          <div style={{ background: '#13132b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div className="modal-overlay" onClick={() => setBarcodeTarget(null)}>
+          <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <div>
-                <h2 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 17, color: '#e8eaf2' }}>Print Barcode</h2>
-                <div style={{ fontSize: 12, color: '#10b981', marginTop: 2 }}>{barcodeTarget.name}</div>
+                <h2>Print Barcode</h2>
+                <p style={{ color: '#10b981' }}>{barcodeTarget.name}</p>
               </div>
-              <button onClick={() => setBarcodeTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,234,242,0.5)' }}><X size={18} /></button>
+              <button className="modal-close" onClick={() => setBarcodeTarget(null)}><X size={14} /></button>
             </div>
-
-            {/* Barcode preview */}
-            <div style={{ background: '#fff', borderRadius: 8, padding: '16px 12px', marginBottom: 18, textAlign: 'center' }}>
-              <BarcodePreview value={barcodeTarget.barcode} />
-              <div style={{ fontSize: 10, color: '#666', marginTop: 4, fontFamily: 'monospace' }}>{barcodeTarget.product_code}</div>
+            <div className="modal-body">
+              <div style={{ background: '#fff', borderRadius: 8, padding: '16px 12px', marginBottom: 18, textAlign: 'center' }}>
+                <BarcodePreview value={barcodeTarget.barcode} />
+                <div style={{ fontSize: 10, color: '#666', marginTop: 4, fontFamily: 'monospace' }}>{barcodeTarget.product_code}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', marginBottom: 18 }}>
+                <div style={{ fontSize: 10, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Barcode Value (CODE128)</div>
+                <div style={{ fontSize: 13, fontFamily: 'monospace', color: '#e8eaf2', fontWeight: 700 }}>{barcodeTarget.barcode}</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <label className="label" style={{ margin: 0 }}>Copies</label>
+                <input type="number" min={1} max={100} value={barcodeCopies} onChange={e => setBarcodeCopies(e.target.value)} className="input" style={{ width: 80, textAlign: 'center' }} />
+                <span style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>labels per sheet</span>
+              </div>
             </div>
-
-            {/* Barcode string info */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', marginBottom: 18 }}>
-              <div style={{ fontSize: 10, color: 'rgba(232,234,242,0.4)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Barcode Value (CODE128)</div>
-              <div style={{ fontSize: 13, fontFamily: 'monospace', color: '#e8eaf2', fontWeight: 700 }}>{barcodeTarget.barcode}</div>
-            </div>
-
-            {/* Copies */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(232,234,242,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Copies</label>
-              <input
-                type="number" min={1} max={100} value={barcodeCopies}
-                onChange={e => setBarcodeCopies(e.target.value)}
-                style={{ width: 80, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '7px 10px', color: '#e8eaf2', fontSize: 13, outline: 'none', textAlign: 'center' }}
-              />
-              <span style={{ fontSize: 11, color: 'rgba(232,234,242,0.4)' }}>labels per sheet</span>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setBarcodeTarget(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '9px 0', color: '#e8eaf2', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button onClick={printBarcode} style={{ flex: 2, background: '#10b981', border: 'none', borderRadius: 8, padding: '9px 0', color: 'white', fontSize: 13, cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setBarcodeTarget(null)}>Cancel</button>
+              <button onClick={printBarcode} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Printer size={14} /> Print {barcodeCopies > 1 ? `${barcodeCopies} Labels` : 'Label'}
               </button>
             </div>
@@ -490,15 +836,16 @@ export default function Products() {
 
       {/* Strength Log Modal */}
       {strengthTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8000 }}>
-          <div style={{ background: '#13132b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 640, maxHeight: '88vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div className="modal-overlay" onClick={() => setStrengthTarget(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
               <div>
-                <h2 style={{ fontFamily: 'Archivo Black, sans-serif', fontSize: 17, color: '#e8eaf2' }}>Oil % History</h2>
-                <div style={{ fontSize: 12, color: '#a78bfa', marginTop: 2 }}>{strengthTarget.name}</div>
+                <h2>Oil % History</h2>
+                <p style={{ color: '#a78bfa' }}>{strengthTarget.name}</p>
               </div>
-              <button onClick={() => setStrengthTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(232,234,242,0.5)' }}><X size={18} /></button>
+              <button className="modal-close" onClick={() => setStrengthTarget(null)}><X size={14} /></button>
             </div>
+            <div className="modal-body">
 
             {strengthLoading ? (
               <div style={{ color: 'rgba(232,234,242,0.4)', fontSize: 13, padding: '32px 0', textAlign: 'center' }}>Loading...</div>
@@ -571,6 +918,22 @@ export default function Products() {
                 </div>
               </>
             )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Modal */}
+      {photoModal && (
+        <div
+          onClick={() => setPhotoModal(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9500, cursor: 'zoom-out' }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}>
+            <button onClick={() => setPhotoModal(null)} style={{ position: 'absolute', top: -12, right: -12, width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>×</button>
+            <img src={photoModal.image_data} alt={photoModal.name} style={{ maxWidth: '85vw', maxHeight: '85vh', borderRadius: 10, objectFit: 'contain', border: '1px solid rgba(255,255,255,0.1)', display: 'block' }} />
+            <div style={{ marginTop: 10, textAlign: 'center', color: 'rgba(232,234,242,0.7)', fontSize: 13, fontWeight: 600 }}>{photoModal.name}</div>
+            <div style={{ textAlign: 'center', color: 'rgba(232,234,242,0.35)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{photoModal.product_code}</div>
           </div>
         </div>
       )}
@@ -584,9 +947,15 @@ export default function Products() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      {/* Attachments Modal */}
+      {attachModal && (
+        <AttachmentsModal product={attachModal} onClose={() => setAttachModal(null)} />
+      )}
     </div>
   )
 }
+
 
 // ─── Barcode Preview ───
 function BarcodePreview({ value }) {
@@ -631,3 +1000,58 @@ function Input({ value, onChange, placeholder, type = 'text', mono }) {
     />
   )
 }
+
+function BarcodeField({ value, productCode, onChange }) {
+  const svgRef = useRef(null)
+  const ink = useInkColor()
+
+  useEffect(() => {
+    if (!svgRef.current || !value) return
+    try {
+      JsBarcode(svgRef.current, value, {
+        format: 'CODE128', width: 1.6, height: 44,
+        displayValue: true, fontSize: 10, margin: 6,
+        background: 'transparent', lineColor: ink,
+      })
+    } catch {
+      svgRef.current.innerHTML = ''
+    }
+  }, [value, ink])
+
+  function generate() {
+    const code = (productCode || '').trim().replace(/\s+/g, '-').toUpperCase()
+    if (code) onChange(code)
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text" value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="Scan, type, or generate..."
+          style={{ ...inputStyle, fontFamily: 'monospace', flex: 1 }}
+        />
+        <button
+          type="button" onClick={generate}
+          disabled={!productCode}
+          title="Generate barcode from product code"
+          style={{
+            background: productCode ? 'rgba(37,99,235,0.15)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${productCode ? 'rgba(37,99,235,0.35)' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: productCode ? 'pointer' : 'not-allowed',
+            color: productCode ? '#60a5fa' : 'rgba(232,234,242,0.3)', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >
+          Generate
+        </button>
+      </div>
+      {value && (
+        <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, display: 'flex', justifyContent: 'center' }}>
+          <svg ref={svgRef} />
+        </div>
+      )}
+    </div>
+  )
+}
+
