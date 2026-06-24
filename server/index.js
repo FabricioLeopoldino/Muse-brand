@@ -4,7 +4,7 @@ require('dotenv').config()
 const express = require('express')
 const path    = require('path')
 const { runStartupMigrations } = require('./db')
-const { startSyncCron } = require('./services/shopify-sync')
+const { startSyncCron, registerWebhooks } = require('./services/shopify-sync')
 
 const app  = express()
 const PORT = process.env.PORT || 3001
@@ -41,6 +41,7 @@ if (process.env.NODE_ENV === 'production') {
 runStartupMigrations()
   .then(() => {
     startSyncCron()
+    registerWebhooks()
     app.listen(PORT, () => console.log(`[SM] Server running on port ${PORT}`))
   })
   .catch(e => {

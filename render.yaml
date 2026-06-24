@@ -19,3 +19,5 @@ services:
         sync: false
       - key: SHOPIFY_WEBHOOK_SECRET
         sync: false
+      - key: RENDER_EXTERNAL_URL
+        value: https://muse-scented.onrender.com

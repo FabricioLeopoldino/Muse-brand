@@ -102,4 +102,45 @@ function startSyncCron() {
   console.log('[shopify-sync] Retry cron started (60s interval)')
 }
 
-module.exports = { enqueueDraftOrder, startSyncCron }
+async function registerWebhooks() {
+  const domain = process.env.SHOPIFY_SHOP_DOMAIN
+  const token  = process.env.SHOPIFY_ACCESS_TOKEN
+  const host   = process.env.RENDER_EXTERNAL_URL || `https://${process.env.SHOPIFY_SHOP_DOMAIN?.replace('.myshopify.com', '')}.onrender.com`
+
+  if (!domain || !token) return
+
+  const callbackUrl = `${host}/api/webhook/shopify`
+  const topics = ['orders/paid']
+
+  for (const topic of topics) {
+    try {
+      // Check if already registered
+      const list = await fetch(
+        `https://${domain}/admin/api/2026-04/webhooks.json?topic=${topic}`,
+        { headers: { 'X-Shopify-Access-Token': token } }
+      )
+      const { webhooks } = await list.json()
+      const exists = webhooks?.some(w => w.address === callbackUrl)
+      if (exists) {
+        console.log(`[shopify-webhooks] ${topic} already registered`)
+        continue
+      }
+
+      const res = await fetch(`https://${domain}/admin/api/2026-04/webhooks.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+        body: JSON.stringify({ webhook: { topic, address: callbackUrl, format: 'json' } })
+      })
+      const data = await res.json()
+      if (data.webhook?.id) {
+        console.log(`[shopify-webhooks] Registered ${topic} → ${callbackUrl}`)
+      } else {
+        console.warn(`[shopify-webhooks] Failed to register ${topic}:`, JSON.stringify(data))
+      }
+    } catch (e) {
+      console.warn(`[shopify-webhooks] Error registering ${topic}:`, e.message)
+    }
+  }
+}
+
+module.exports = { enqueueDraftOrder, startSyncCron, registerWebhooks }
