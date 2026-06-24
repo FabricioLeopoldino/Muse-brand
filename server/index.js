@@ -10,6 +10,8 @@ const app  = express()
 const PORT = process.env.PORT || 3001
 
 app.use(require('cors')())
+// Raw body must be parsed before express.json for Shopify HMAC verification
+app.use('/api/webhook/shopify', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '25mb' }))
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))

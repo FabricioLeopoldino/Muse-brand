@@ -7,7 +7,7 @@ const { enqueueDraftOrder } = require('../services/shopify-sync')
 
 const processingOrders = new Set()
 
-router.post('/webhook/shopify', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook/shopify', async (req, res) => {
   if (process.env.SHOPIFY_WEBHOOK_SECRET) {
     const hmac = req.headers['x-shopify-hmac-sha256']
     const digest = crypto
