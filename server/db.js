@@ -115,6 +115,7 @@ async function runStartupMigrations() {
   await query(`ALTER TABLE external_processing ALTER COLUMN sent_date DROP NOT NULL`)
   await query(`ALTER TABLE production_order_lines ADD COLUMN IF NOT EXISTS ready_formula_id INTEGER REFERENCES products(id) ON DELETE SET NULL`)
   await query(`ALTER TABLE production_order_lines ADD COLUMN IF NOT EXISTS use_ready_formula BOOLEAN DEFAULT false`)
+  await query(`ALTER TABLE production_orders ADD COLUMN IF NOT EXISTS shopify_draft_order_number VARCHAR(20)`)
 
   // Data normalization
   await query(`UPDATE products SET category = 'RAW_MATERIAL' WHERE category = 'RAW_MATERIALS'`)

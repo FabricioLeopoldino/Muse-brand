@@ -277,7 +277,8 @@ export default function ProductionOrders() {
                   {statusFilter === 'ALL' ? null : <StatusBadge status={order.status} />}
                   {order.order_type === 'LARGE_CLIENT' && <Chip color="#a78bfa">Major Client</Chip>}
                   {!order.client_id && <Chip color="#fbbf24">MUSE</Chip>}
-                  {order.shopify_order_number && <Chip color="#60a5fa">{order.shopify_order_number}</Chip>}
+                  {order.shopify_draft_order_number && !order.shopify_order_number && <Chip color="#94a3b8">Shopify {order.shopify_draft_order_number}</Chip>}
+                  {order.shopify_order_number && <Chip color="#60a5fa">Shopify {order.shopify_order_number}</Chip>}
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(232,234,242,0.45)', marginTop: 3 }}>
                   {order.client_name || 'MUSE Internal'} · {order.lines?.length || 0} line{order.lines?.length !== 1 ? 's' : ''}

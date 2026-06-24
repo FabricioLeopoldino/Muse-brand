@@ -33,7 +33,7 @@ router.post('/webhook/shopify', async (req, res) => {
       const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = 'orders/paid'`, [shopifyOrderId])
       if (already.rows[0]) return
 
-      const prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.cart_token || shopifyOrderId])
+      const prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.draft_order_id || shopifyOrderId])
       if (prodOrder.rows[0]) {
         const order = prodOrder.rows[0]
         await withTransaction(async (client) => {
@@ -127,10 +127,10 @@ router.post('/shopify/draft-order', auth, async (req, res) => {
     }
 
     await query(
-      `UPDATE production_orders SET shopify_draft_order_id = $1, status = 'confirmed', updated_at = NOW() WHERE id = $2`,
-      [data.draft_order.id, production_order_id]
+      `UPDATE production_orders SET shopify_draft_order_id = $1, shopify_draft_order_number = $2, status = 'confirmed', updated_at = NOW() WHERE id = $3`,
+      [data.draft_order.id, data.draft_order.name, production_order_id]
     )
-    res.json({ draft_order_id: data.draft_order.id, draft_order_url: data.draft_order.invoice_url })
+    res.json({ draft_order_id: data.draft_order.id, draft_order_number: data.draft_order.name, draft_order_url: data.draft_order.invoice_url })
   } catch (e) {
     // Network error — queue for retry
     await enqueueDraftOrder(production_order_id).catch(() => {})
