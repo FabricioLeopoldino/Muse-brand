@@ -8,32 +8,42 @@ const { enqueueDraftOrder } = require('../services/shopify-sync')
 const processingOrders = new Set()
 
 router.post('/webhook/shopify', async (req, res) => {
-  if (process.env.SHOPIFY_WEBHOOK_SECRET) {
+  const topic = req.headers['x-shopify-topic'] || 'unknown'
+  console.log(`[webhook] received topic=${topic}`)
+
+  // HMAC verification — for API-registered webhooks, secret = SHOPIFY_API_SECRET (client secret)
+  const secret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET
+  if (secret) {
     const hmac = req.headers['x-shopify-hmac-sha256']
-    const digest = crypto
-      .createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET)
-      .update(req.body)
-      .digest('base64')
-    if (!hmac || digest !== hmac) return res.status(401).json({ error: 'Unauthorized' })
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
+    const digest = crypto.createHmac('sha256', secret).update(body).digest('base64')
+    if (!hmac || digest !== hmac) {
+      console.warn(`[webhook] HMAC mismatch — topic=${topic} expected=${digest} got=${hmac}`)
+      return res.status(401).json({ error: 'Unauthorized' })
+    }
   }
 
   res.status(200).json({ received: true })
 
   try {
-    const topic = req.headers['x-shopify-topic']
     if (topic !== 'orders/paid') return
 
-    const body = JSON.parse(req.body.toString())
+    const rawBody = Buffer.isBuffer(req.body) ? req.body.toString() : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
+    const body = JSON.parse(rawBody)
     const shopifyOrderId = body.id
+
+    console.log(`[webhook] orders/paid shopifyOrderId=${shopifyOrderId} draft_order_id=${body.draft_order_id} name=${body.name}`)
 
     if (processingOrders.has(shopifyOrderId)) return
     processingOrders.add(shopifyOrderId)
 
     try {
       const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = 'orders/paid'`, [shopifyOrderId])
-      if (already.rows[0]) return
+      if (already.rows[0]) { console.log(`[webhook] already processed ${shopifyOrderId}`); return }
 
       const prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.draft_order_id || shopifyOrderId])
+      console.log(`[webhook] production order match: ${prodOrder.rows[0]?.order_number || 'NOT FOUND'} (looked up draft_order_id=${body.draft_order_id})`)
+
       if (prodOrder.rows[0]) {
         const order = prodOrder.rows[0]
         await withTransaction(async (client) => {
@@ -51,11 +61,12 @@ router.post('/webhook/shopify', async (req, res) => {
             }
           }
           await tq(
-            `UPDATE production_orders SET status = 'confirmed', shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
-            [shopifyOrderId, body.order_number || body.name, order.id]
+            `UPDATE production_orders SET shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
+            [shopifyOrderId, body.name || body.order_number, order.id]
           )
         })
-        await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId })
+        console.log(`[webhook] updated ${order.order_number} → Shopify ${body.name}`)
+        await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId, shopify_order_number: body.name })
       }
 
       await query(`INSERT INTO webhook_processed (shopify_order_id, webhook_type) VALUES ($1,'orders/paid')`, [shopifyOrderId])
@@ -63,7 +74,7 @@ router.post('/webhook/shopify', async (req, res) => {
       processingOrders.delete(shopifyOrderId)
     }
   } catch (e) {
-    console.error('[webhook]', e.message)
+    console.error('[webhook] error:', e.message)
   }
 })
 
