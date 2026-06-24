@@ -41,8 +41,20 @@ router.post('/webhook/shopify', async (req, res) => {
       const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = 'orders/paid'`, [shopifyOrderId])
       if (already.rows[0]) { console.log(`[webhook] already processed ${shopifyOrderId}`); return }
 
-      const prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.draft_order_id || shopifyOrderId])
-      console.log(`[webhook] production order match: ${prodOrder.rows[0]?.order_number || 'NOT FOUND'} (looked up draft_order_id=${body.draft_order_id})`)
+      // Shopify doesn't reliably send draft_order_id in orders/paid payload.
+      // Fall back to parsing the SM order number from the note we wrote on the draft order.
+      let prodOrder = { rows: [] }
+      if (body.draft_order_id) {
+        prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.draft_order_id])
+      }
+      if (!prodOrder.rows[0] && body.note) {
+        const match = body.note.match(/SM Order:\s*(SM-\d+)/)
+        if (match) {
+          prodOrder = await query(`SELECT * FROM production_orders WHERE order_number = $1`, [match[1]])
+          console.log(`[webhook] matched by note SM number: ${match[1]}`)
+        }
+      }
+      console.log(`[webhook] production order match: ${prodOrder.rows[0]?.order_number || 'NOT FOUND'}`)
 
       if (prodOrder.rows[0]) {
         const order = prodOrder.rows[0]
