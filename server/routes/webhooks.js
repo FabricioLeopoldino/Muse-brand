@@ -112,7 +112,7 @@ router.post('/shopify/draft-order', auth, async (req, res) => {
         send_receipt: false,
         send_invoice: false,
         line_items: lineItems,
-        note: `SM Order: ${order.rows[0].order_number} | Due: ${order.rows[0].due_date || 'TBD'}`,
+        note: `SM Order: ${order.rows[0].order_number} | Due: ${order.rows[0].due_date || 'TBD'}${order.rows[0].notes ? '\n\n' + order.rows[0].notes : ''}`,
         tags: 'SA Custom Orders'
       }
     }
@@ -147,6 +147,17 @@ router.post('/shopify/draft-order', auth, async (req, res) => {
     await enqueueDraftOrder(production_order_id).catch(() => {})
     res.json({ queued: true, message: 'Shopify unreachable — draft order queued for retry' })
   }
+})
+
+router.get('/shopify-webhook/recent', auth, async (req, res) => {
+  try {
+    const received = await query(`SELECT * FROM webhook_processed ORDER BY processed_at DESC LIMIT 20`)
+    const orders = await query(
+      `SELECT order_number, shopify_draft_order_id, shopify_draft_order_number, shopify_order_id, shopify_order_number, status, updated_at
+       FROM production_orders WHERE shopify_draft_order_id IS NOT NULL ORDER BY updated_at DESC LIMIT 10`
+    )
+    res.json({ webhooks_processed: received.rows, orders_with_shopify: orders.rows })
+  } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 router.get('/shopify-sync/status', auth, async (req, res) => {
