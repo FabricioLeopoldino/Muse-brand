@@ -110,7 +110,7 @@ async function registerWebhooks() {
   if (!domain || !token) return
 
   const callbackUrl = `${host}/api/webhook/shopify`
-  const topics = ['orders/paid']
+  const topics = ['orders/paid', 'orders/cancelled']
 
   for (const topic of topics) {
     try {

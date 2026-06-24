@@ -26,23 +26,22 @@ router.post('/webhook/shopify', async (req, res) => {
   res.status(200).json({ received: true })
 
   try {
-    if (topic !== 'orders/paid') return
+    if (!['orders/paid', 'orders/cancelled'].includes(topic)) return
 
     const rawBody = Buffer.isBuffer(req.body) ? req.body.toString() : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
     const body = JSON.parse(rawBody)
     const shopifyOrderId = body.id
 
-    console.log(`[webhook] orders/paid shopifyOrderId=${shopifyOrderId} draft_order_id=${body.draft_order_id} name=${body.name}`)
+    console.log(`[webhook] ${topic} shopifyOrderId=${shopifyOrderId} name=${body.name}`)
 
     if (processingOrders.has(shopifyOrderId)) return
     processingOrders.add(shopifyOrderId)
 
     try {
-      const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = 'orders/paid'`, [shopifyOrderId])
+      const already = await query(`SELECT id FROM webhook_processed WHERE shopify_order_id = $1 AND webhook_type = $2`, [shopifyOrderId, topic])
       if (already.rows[0]) { console.log(`[webhook] already processed ${shopifyOrderId}`); return }
 
-      // Shopify doesn't reliably send draft_order_id in orders/paid payload.
-      // Fall back to parsing the SM order number from the note we wrote on the draft order.
+      // Shopify doesn't reliably send draft_order_id — match by SM order number in note
       let prodOrder = { rows: [] }
       if (body.draft_order_id) {
         prodOrder = await query(`SELECT * FROM production_orders WHERE shopify_draft_order_id = $1`, [body.draft_order_id])
@@ -51,37 +50,49 @@ router.post('/webhook/shopify', async (req, res) => {
         const match = body.note.match(/SM Order:\s*(SM-\d+)/)
         if (match) {
           prodOrder = await query(`SELECT * FROM production_orders WHERE order_number = $1`, [match[1]])
-          console.log(`[webhook] matched by note SM number: ${match[1]}`)
+          console.log(`[webhook] matched by note: ${match[1]}`)
         }
       }
       console.log(`[webhook] production order match: ${prodOrder.rows[0]?.order_number || 'NOT FOUND'}`)
 
       if (prodOrder.rows[0]) {
         const order = prodOrder.rows[0]
-        await withTransaction(async (client) => {
-          const tq = (text, params) => client.query(text, params)
-          const comps = await tq(`SELECT * FROM production_order_components WHERE production_order_id = $1 AND source = 'general_stock'`, [order.id])
-          for (const comp of comps.rows) {
-            if (comp.product_id) {
-              await tq(
-                `INSERT INTO stock_reservations (production_order_id, production_order_line_id, product_id, product_code, source, quantity_reserved, status)
-                 VALUES ($1,$2,$3,$4,'general_stock',$5,'reserved')
-                 ON CONFLICT (production_order_id, product_id) WHERE product_id IS NOT NULL AND client_stock_id IS NULL
-                 DO UPDATE SET quantity_reserved = stock_reservations.quantity_reserved + EXCLUDED.quantity_reserved`,
-                [order.id, comp.production_order_line_id, comp.product_id, comp.product_code, comp.quantity_required]
-              )
-            }
-          }
-          await tq(
-            `UPDATE production_orders SET shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
-            [shopifyOrderId, body.name || body.order_number, order.id]
+
+        if (topic === 'orders/cancelled') {
+          await query(
+            `UPDATE production_orders SET status = 'cancelled', shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
+            [shopifyOrderId, body.name, order.id]
           )
-        })
-        console.log(`[webhook] updated ${order.order_number} → Shopify ${body.name}`)
-        await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId, shopify_order_number: body.name })
+          // Release any stock reservations
+          await query(`UPDATE stock_reservations SET status = 'released' WHERE production_order_id = $1 AND status = 'reserved'`, [order.id])
+          console.log(`[webhook] cancelled ${order.order_number} — stock reservations released`)
+          await auditLog(0, 'shopify_order_cancelled', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId })
+        } else {
+          await withTransaction(async (client) => {
+            const tq = (text, params) => client.query(text, params)
+            const comps = await tq(`SELECT * FROM production_order_components WHERE production_order_id = $1 AND source = 'general_stock'`, [order.id])
+            for (const comp of comps.rows) {
+              if (comp.product_id) {
+                await tq(
+                  `INSERT INTO stock_reservations (production_order_id, production_order_line_id, product_id, product_code, source, quantity_reserved, status)
+                   VALUES ($1,$2,$3,$4,'general_stock',$5,'reserved')
+                   ON CONFLICT (production_order_id, product_id) WHERE product_id IS NOT NULL AND client_stock_id IS NULL
+                   DO UPDATE SET quantity_reserved = stock_reservations.quantity_reserved + EXCLUDED.quantity_reserved`,
+                  [order.id, comp.production_order_line_id, comp.product_id, comp.product_code, comp.quantity_required]
+                )
+              }
+            }
+            await tq(
+              `UPDATE production_orders SET shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
+              [shopifyOrderId, body.name || body.order_number, order.id]
+            )
+          })
+          console.log(`[webhook] updated ${order.order_number} → Shopify ${body.name}`)
+          await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId, shopify_order_number: body.name })
+        }
       }
 
-      await query(`INSERT INTO webhook_processed (shopify_order_id, webhook_type) VALUES ($1,'orders/paid')`, [shopifyOrderId])
+      await query(`INSERT INTO webhook_processed (shopify_order_id, webhook_type) VALUES ($1,$2)`, [shopifyOrderId, topic])
     } finally {
       processingOrders.delete(shopifyOrderId)
     }
