@@ -47,15 +47,15 @@ router.get('/products/:id', auth, async (req, res) => {
 
 router.post('/products', auth, async (req, res) => {
   try {
-    const { name, product_code, category, sub_category, unit, current_stock, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, is_master, master_product_id, fragrance_id, segment } = req.body
+    const { name, product_code, category, sub_category, unit, current_stock, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, is_master, master_product_id, fragrance_id, segment, price, description } = req.body
     if (!name || !product_code || !category) return res.status(400).json({ error: 'Name, product_code and category required' })
     // Auto-flag FG products without a master parent as masters (Cin7-style: FG in Products page = template)
     const finalIsMaster = is_master ?? (category === 'FINISHED_GOOD' && !master_product_id && !fragrance_id)
     const finalSegment = segment ?? (finalIsMaster ? (client_id ? 'MAJOR' : 'MUSE') : null)
     const result = await query(
-      `INSERT INTO products (name, product_code, category, sub_category, unit, current_stock, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, is_master, master_product_id, fragrance_id, segment)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
-      [name, product_code.toUpperCase(), category, sub_category || null, unit || 'units', current_stock || 0, min_stock_level || 0, supplier || null, supplier_id || null, supplier_code || null, bin_location || null, barcode || null, shopify_variant_id || null, lead_time || null, notes || null, image_data || null, client_id || null, volume_ml ? parseFloat(volume_ml) : null, default_oil_pct ? parseFloat(default_oil_pct) : 25, finalIsMaster, master_product_id || null, fragrance_id || null, finalSegment]
+      `INSERT INTO products (name, product_code, category, sub_category, unit, current_stock, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, is_master, master_product_id, fragrance_id, segment, price, description)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING *`,
+      [name, product_code.toUpperCase(), category, sub_category || null, unit || 'units', current_stock || 0, min_stock_level || 0, supplier || null, supplier_id || null, supplier_code || null, bin_location || null, barcode || null, shopify_variant_id || null, lead_time || null, notes || null, image_data || null, client_id || null, volume_ml ? parseFloat(volume_ml) : null, default_oil_pct ? parseFloat(default_oil_pct) : 25, finalIsMaster, master_product_id || null, fragrance_id || null, finalSegment, price ? parseFloat(price) : null, description || null]
     )
     await auditLog(req.user.id, 'product_created', 'product', result.rows[0].id, name, { product_code, category, is_master: finalIsMaster, segment: finalSegment })
     res.status(201).json(result.rows[0])
@@ -67,10 +67,10 @@ router.post('/products', auth, async (req, res) => {
 
 router.put('/products/:id', auth, async (req, res) => {
   try {
-    const { name, product_code, category, sub_category, unit, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, segment } = req.body
+    const { name, product_code, category, sub_category, unit, min_stock_level, supplier, supplier_id, supplier_code, bin_location, barcode, shopify_variant_id, lead_time, notes, image_data, client_id, volume_ml, default_oil_pct, segment, price, description } = req.body
     const result = await query(
-      `UPDATE products SET name=COALESCE($1,name), product_code=COALESCE($2,product_code), category=COALESCE($3,category), sub_category=$4, unit=COALESCE($5,unit), min_stock_level=COALESCE($6,min_stock_level), supplier=$7, supplier_id=$8, supplier_code=$9, bin_location=$10, barcode=$11, shopify_variant_id=$12, lead_time=$13, notes=$14, image_data=$15, client_id=$16, volume_ml=COALESCE($17,volume_ml), default_oil_pct=COALESCE($18,default_oil_pct), segment=COALESCE($19,segment) WHERE id=$20 RETURNING *`,
-      [name, product_code?.toUpperCase(), category, sub_category ?? null, unit, min_stock_level, supplier ?? null, supplier_id ?? null, supplier_code ?? null, bin_location ?? null, barcode ?? null, shopify_variant_id ?? null, lead_time ?? null, notes ?? null, image_data ?? null, client_id ?? null, volume_ml ? parseFloat(volume_ml) : null, default_oil_pct ? parseFloat(default_oil_pct) : null, segment ?? null, req.params.id]
+      `UPDATE products SET name=COALESCE($1,name), product_code=COALESCE($2,product_code), category=COALESCE($3,category), sub_category=$4, unit=COALESCE($5,unit), min_stock_level=COALESCE($6,min_stock_level), supplier=$7, supplier_id=$8, supplier_code=$9, bin_location=$10, barcode=$11, shopify_variant_id=$12, lead_time=$13, notes=$14, image_data=$15, client_id=$16, volume_ml=COALESCE($17,volume_ml), default_oil_pct=COALESCE($18,default_oil_pct), segment=COALESCE($19,segment), price=$20, description=$21 WHERE id=$22 RETURNING *`,
+      [name, product_code?.toUpperCase(), category, sub_category ?? null, unit, min_stock_level, supplier ?? null, supplier_id ?? null, supplier_code ?? null, bin_location ?? null, barcode ?? null, shopify_variant_id ?? null, lead_time ?? null, notes ?? null, image_data ?? null, client_id ?? null, volume_ml ? parseFloat(volume_ml) : null, default_oil_pct ? parseFloat(default_oil_pct) : null, segment ?? null, price != null && price !== '' ? parseFloat(price) : null, description ?? null, req.params.id]
     )
     if (!result.rows[0]) return res.status(404).json({ error: 'Not found' })
     res.json(result.rows[0])
@@ -245,6 +245,58 @@ router.delete('/products/:id/attachments/:attachId', auth, requireRole('root', '
     if (!result.rows[0]) return res.status(404).json({ error: 'Not found' })
     await auditLog(req.user.id, 'attachment_deleted', 'product', parseInt(req.params.id), result.rows[0].filename, {})
     res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Publish a product to Shopify as a draft (system stays source of truth for stock/price).
+router.post('/products/:id/shopify/publish', auth, async (req, res) => {
+  try {
+    if (!process.env.SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+      return res.status(503).json({ error: 'Shopify not configured' })
+    }
+    const prod = await query(`SELECT * FROM products WHERE id = $1`, [req.params.id])
+    if (!prod.rows[0]) return res.status(404).json({ error: 'Not found' })
+    const p = prod.rows[0]
+
+    const images = []
+    if (p.image_data) {
+      const base64 = p.image_data.replace(/^data:image\/\w+;base64,/, '')
+      images.push({ attachment: base64 })
+    }
+
+    const shopifyProduct = {
+      product: {
+        title: p.name,
+        body_html: p.description || '',
+        product_type: 'Diffusers',
+        status: 'draft',
+        images,
+        variants: [{
+          sku: p.product_code,
+          barcode: p.barcode || undefined,
+          price: p.price != null ? String(p.price) : '0.00',
+          inventory_management: 'shopify',
+          inventory_policy: 'deny',
+          inventory_quantity: Math.max(0, Math.trunc(parseFloat(p.current_stock) || 0)),
+        }]
+      }
+    }
+
+    const response = await fetch(`https://${process.env.SHOPIFY_SHOP_DOMAIN}/admin/api/2026-04/products.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN },
+      body: JSON.stringify(shopifyProduct)
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(502).json({ error: data.errors ? JSON.stringify(data.errors) : 'Shopify API error' })
+
+    const variant = data.product.variants[0]
+    const updated = await query(
+      `UPDATE products SET shopify_product_id = $1, shopify_variant_id = $2, shopify_inventory_item_id = $3, shopify_synced_at = NOW() WHERE id = $4 RETURNING *`,
+      [data.product.id, variant.id, variant.inventory_item_id, p.id]
+    )
+    await auditLog(req.user.id, 'product_published_to_shopify', 'product', p.id, p.name, { shopify_product_id: data.product.id })
+    res.json(updated.rows[0])
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 

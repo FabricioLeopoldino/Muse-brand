@@ -14,6 +14,7 @@ export const CODE_PREFIXES = {
   LABEL: 'LABEL_',
   FINISHED_GOOD: 'FG_',
   READY_FORMULA: 'RF-FRAG_',
+  DIFFUSER: 'DIF_',
 }
 
 export const CAT_COLORS = {
@@ -23,6 +24,7 @@ export const CAT_COLORS = {
   LABEL: '#f472b6',
   FINISHED_GOOD: '#4ade80',
   READY_FORMULA: '#fb923c',
+  DIFFUSER: '#38bdf8',
 }
 
 export const ALL_PROD_CATEGORIES = [
@@ -32,6 +34,7 @@ export const ALL_PROD_CATEGORIES = [
   { key: 'FRAGRANCE', label: 'Fragrance' },
   { key: 'FINISHED_GOOD', label: 'Finished Good' },
   { key: 'READY_FORMULA', label: 'Ready Formula' },
+  { key: 'DIFFUSER', label: 'Diffuser' },
 ]
 
 // Product segment — scopes where a component/material is available.
@@ -50,6 +53,7 @@ export const EMPTY_PRODUCT_FORM = {
   unit: 'units', current_stock: '0', min_stock_level: '0',
   supplier: '', supplier_code: '', bin_location: '', barcode: '',
   lead_time: '', notes: '', image_data: '', volume_ml: '', default_oil_pct: '',
+  price: '', description: '',
 }
 
 export function defaultUnitForCategory(cat) {
@@ -58,7 +62,7 @@ export function defaultUnitForCategory(cat) {
 }
 
 export function requiresBarcode(cat) {
-  return ['RAW_MATERIAL', 'COMPONENT', 'FINISHED_GOOD'].includes(cat)
+  return ['RAW_MATERIAL', 'COMPONENT', 'FINISHED_GOOD', 'DIFFUSER'].includes(cat)
 }
 
 // Barcode auto-derived from the product code (spaces → dashes, uppercased).
@@ -282,6 +286,17 @@ export default function ProductFormModal({ mode, form, setForm, saving, onClose,
           {form.category === 'FRAGRANCE' && (
             <PField label="Default Oil %">
               <input type="number" min={0} max={100} step="any" value={form.default_oil_pct} onChange={e => setForm(f => ({ ...f, default_oil_pct: e.target.value }))} placeholder="e.g. 25" style={pInput} />
+            </PField>
+          )}
+
+          {form.category === 'DIFFUSER' && (
+            <PField label="Price (AUD)">
+              <input type="number" min={0} step="0.01" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="Not set yet" style={pInput} />
+            </PField>
+          )}
+          {form.category === 'DIFFUSER' && (
+            <PField label="Description" full>
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Shown on the Shopify product page..." style={{ ...pInput, resize: 'vertical', fontFamily: 'inherit' }} />
             </PField>
           )}
 

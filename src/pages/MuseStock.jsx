@@ -13,7 +13,7 @@ import ProductFormModal, { EMPTY_PRODUCT_FORM, ALL_PROD_CATEGORIES } from '../co
 import StockTable from '../components/StockTable.jsx'
 import MuseHeader from '../components/MuseHeader.jsx'
 
-const MUSE_COMP_CATEGORIES = ['COMPONENT', 'LABEL', 'RAW_MATERIAL', 'FRAGRANCE']
+const MUSE_COMP_CATEGORIES = ['COMPONENT', 'LABEL', 'RAW_MATERIAL', 'FRAGRANCE', 'DIFFUSER']
 
 function api() { return { headers: { Authorization: `Bearer ${localStorage.getItem('sm_token')}` } } }
 
@@ -67,6 +67,7 @@ export default function MuseStock() {
   const [editVariantForm, setEditVariantForm] = useState({ name: '', min_stock_level: '', notes: '' })
   const [editVariantSaving, setEditVariantSaving] = useState(false)
   const [shopifyModal, setShopifyModal] = useState(null) // variant
+  const [publishing, setPublishing] = useState(false)
   const imageFileRef = useRef(null)
   const { addToast } = useToast()
 
@@ -80,7 +81,7 @@ export default function MuseStock() {
   }
 
   function openCreateProduct() {
-    const startCat = tab === 'labels' ? 'LABEL' : tab === 'raw' ? 'RAW_MATERIAL' : tab === 'fragrance' ? 'FRAGRANCE' : 'COMPONENT'
+    const startCat = tab === 'labels' ? 'LABEL' : tab === 'raw' ? 'RAW_MATERIAL' : tab === 'fragrance' ? 'FRAGRANCE' : tab === 'diffusers' ? 'DIFFUSER' : 'COMPONENT'
     setProdForm({ ...EMPTY_PRODUCT_FORM, category: startCat, segment: 'MUSE' })
     setProdModal('create')
   }
@@ -99,6 +100,7 @@ export default function MuseStock() {
       notes: p.notes || '', image_data: p.image_data || '',
       volume_ml: p.volume_ml != null ? String(p.volume_ml) : '',
       default_oil_pct: p.default_oil_pct != null ? String(p.default_oil_pct) : '',
+      price: p.price != null ? String(p.price) : '', description: p.description || '',
     })
     setProdModal({ editing: p })
   }
@@ -124,6 +126,8 @@ export default function MuseStock() {
         lead_time: prodForm.lead_time ? parseInt(prodForm.lead_time) : null,
         notes: prodForm.notes?.trim() || null,
         image_data: prodForm.image_data || null,
+        price: prodForm.price !== '' ? parseFloat(prodForm.price) : null,
+        description: prodForm.description?.trim() || null,
       }
       if (prodModal === 'create' && prodForm.segment === 'MAJOR' && prodForm.client_id) {
         // Major segment → routes to the client's Reserved Stock (client_stock table).
@@ -291,6 +295,18 @@ export default function MuseStock() {
     finally { setSaving(false) }
   }
 
+  async function handlePublishToShopify() {
+    if (!shopifyModal) return
+    setPublishing(true)
+    try {
+      await axios.post(`/api/products/${shopifyModal.id}/shopify/publish`, {}, api())
+      addToast(`"${shopifyModal.name}" published to Shopify as draft`)
+      setShopifyModal(null)
+      load(); loadComponents()
+    } catch (e) { addToast(e.response?.data?.error || 'Shopify publish failed', 'error') }
+    finally { setPublishing(false) }
+  }
+
   // Enhance variants with master/fragrance names from masters list
   const masterById = {}
   masters.forEach(m => { masterById[m.id] = m })
@@ -354,6 +370,7 @@ export default function MuseStock() {
           { key: 'fragrance',  label: 'Fragrances',    count: components.filter(c => c.category === 'FRAGRANCE').length },
           { key: 'raw',        label: 'Raw Materials', count: components.filter(c => c.category === 'RAW_MATERIAL').length },
           { key: 'labels',     label: 'Labels',        count: components.filter(c => c.category === 'LABEL').length },
+          { key: 'diffusers',  label: 'Diffusers',     count: components.filter(c => c.category === 'DIFFUSER').length },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
             background: 'none', border: 'none',
@@ -370,10 +387,11 @@ export default function MuseStock() {
       {tab !== 'finished' && (
         <ComponentList
           items={
-            tab === 'all'       ? components :
+            tab === 'all'        ? components :
             tab === 'components' ? components.filter(c => c.category === 'COMPONENT') :
             tab === 'fragrance'  ? components.filter(c => c.category === 'FRAGRANCE') :
             tab === 'labels'     ? components.filter(c => c.category === 'LABEL') :
+            tab === 'diffusers'  ? components.filter(c => c.category === 'DIFFUSER') :
                                    components.filter(c => c.category === 'RAW_MATERIAL')
           }
           onAdjust={(p, mode) => { setAdjModal({ variant: p, mode }); setAdjQty(''); setAdjNotes('') }}
@@ -382,6 +400,7 @@ export default function MuseStock() {
           onRestore={handleRestoreProduct}
           onZoom={img => setPhotoModal({ image_data: img, name: '' })}
           onPrint={p => { setBarcodeTarget(p); setBarcodeCopies(1) }}
+          onShopify={tab === 'diffusers' ? (p => setShopifyModal(p)) : undefined}
         />
       )}
 
@@ -630,6 +649,7 @@ export default function MuseStock() {
                   { label: 'Product Name', value: shopifyModal.name },
                   { label: 'SKU', value: shopifyModal.sku || shopifyModal.product_code || '—' },
                   { label: 'Barcode', value: shopifyModal.barcode || shopifyModal.sku || '—' },
+                  { label: 'Price', value: shopifyModal.price != null ? `$${Number(shopifyModal.price).toFixed(2)} AUD` : 'Not set yet' },
                   { label: 'Stock', value: `${Number(shopifyModal.current_stock || 0).toLocaleString()} ${shopifyModal.unit}` },
                   { label: 'Status', value: parseFloat(shopifyModal.current_stock) > 0 ? 'In Stock' : 'Out of Stock' },
                 ].map(({ label, value }) => (
@@ -638,16 +658,30 @@ export default function MuseStock() {
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: label === 'SKU' || label === 'Barcode' ? 'monospace' : 'inherit' }}>{value}</span>
                   </div>
                 ))}
+                {shopifyModal.description && (
+                  <div style={{ padding: '8px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 7 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>Description</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{shopifyModal.description}</div>
+                  </div>
+                )}
               </div>
-              <div style={{ padding: '12px 14px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, fontSize: 12, color: '#fbbf24', lineHeight: 1.6 }}>
-                <strong>Integration ready.</strong> Shopify sync will be configured in the next phase. Stock levels, prices and availability will update bidirectionally once connected.
-              </div>
+              {shopifyModal.shopify_product_id ? (
+                <div style={{ padding: '12px 14px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, fontSize: 12, color: '#4ade80', lineHeight: 1.6 }}>
+                  <strong>Synced to Shopify.</strong> Created as a draft product. Stock changes in this system will push to Shopify automatically.
+                </div>
+              ) : (
+                <div style={{ padding: '12px 14px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, fontSize: 12, color: '#fbbf24', lineHeight: 1.6 }}>
+                  Creates this product on Shopify as a <strong>draft</strong> (not visible on the storefront). Stock stays synced from this system going forward.
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShopifyModal(null)}>Close</button>
-              <button className="btn btn-primary" disabled style={{ opacity: 0.45, cursor: 'not-allowed' }}>
-                <ExternalLink size={13} /> Publish (coming soon)
-              </button>
+              {!shopifyModal.shopify_product_id && (
+                <button className="btn btn-primary" onClick={handlePublishToShopify} disabled={publishing}>
+                  <ExternalLink size={13} /> {publishing ? 'Publishing...' : 'Publish to Shopify'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -794,7 +828,7 @@ export default function MuseStock() {
   )
 }
 
-function ComponentList({ items, onAdjust, onEdit, onDelete, onZoom, onPrint, onRestore }) {
+function ComponentList({ items, onAdjust, onEdit, onDelete, onZoom, onPrint, onRestore, onShopify }) {
   const [search, setSearch] = useState('')
   const filtered = search.trim()
     ? items.filter(p => p.name?.toLowerCase().includes(search.toLowerCase()) || p.product_code?.toLowerCase().includes(search.toLowerCase()))
@@ -824,6 +858,7 @@ function ComponentList({ items, onAdjust, onEdit, onDelete, onZoom, onPrint, onR
           onDelete={onDelete}
           onRestore={onRestore}
           onZoom={onZoom}
+          onShopify={onShopify}
         />
       )}
     </div>

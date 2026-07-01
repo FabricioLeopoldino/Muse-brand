@@ -1,4 +1,5 @@
 const { query } = require('../db')
+const { enqueueInventoryAdjust } = require('./shopify-sync')
 
 async function adjustProductStock(productId, delta, type, notes, userId, orderId, lineId, qFn) {
   const qry = qFn || query
@@ -17,6 +18,10 @@ async function adjustProductStock(productId, delta, type, notes, userId, orderId
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [p.id, p.product_code, p.name, p.category, type, Math.abs(delta), p.unit, p.current_stock, notes || null, orderId || null, lineId || null, userId || null]
   )
+  // System is the source of truth — push the delta to Shopify if this product is published there
+  if (p.shopify_inventory_item_id) {
+    await enqueueInventoryAdjust(p.id, delta).catch(() => {})
+  }
   return p
 }
 

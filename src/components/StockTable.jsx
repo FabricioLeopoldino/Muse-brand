@@ -9,7 +9,7 @@ import { useRef, useEffect } from 'react'
 import JsBarcode from 'jsbarcode'
 import { useInkColor } from '../utils/theme.js'
 import IconButton from './IconButton.jsx'
-import { Edit2, Printer, Trash2, Upload, Image as ImageIcon } from 'lucide-react'
+import { Edit2, Printer, Trash2, Upload, Image as ImageIcon, ExternalLink } from 'lucide-react'
 import { PRODUCT_SEGMENTS, CAT_COLORS } from './ProductFormModal.jsx'
 
 // Tiered status based on available stock vs min_stock_level:
@@ -82,7 +82,7 @@ function ImageCell({ image, name, accent, onUpload, onZoom }) {
 
 export default function StockTable({
   products, accent = '#60a5fa',
-  onAdjust, onEdit, onPrint, onDelete, onUpload, onZoom, onRestore,
+  onAdjust, onEdit, onPrint, onDelete, onUpload, onZoom, onRestore, onShopify,
 }) {
   return (
     <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, overflow: 'hidden' }}>
@@ -184,6 +184,11 @@ export default function StockTable({
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                     {onAdjust && !p.archived && <IconButton className="icon-btn-text" onClick={() => onAdjust(p, 'add')} title="Adjust stock">Adjust</IconButton>}
                     {onEdit && !p.archived && <IconButton onClick={() => onEdit(p)} title="Edit product"><Edit2 size={13} /></IconButton>}
+                    {onShopify && !p.archived && (
+                      <IconButton onClick={() => onShopify(p)} title={p.shopify_product_id ? 'Synced to Shopify' : 'Publish to Shopify'} style={p.shopify_product_id ? { color: '#4ade80' } : undefined}>
+                        <ExternalLink size={13} />
+                      </IconButton>
+                    )}
                     {onPrint && <IconButton onClick={() => onPrint(p)} title="Print barcode"><Printer size={13} /></IconButton>}
                     {onRestore && p.archived && <IconButton className="icon-btn-text" onClick={() => onRestore(p)} title="Restore product">Restore</IconButton>}
                     {onDelete && !p.archived && <IconButton variant="danger" onClick={() => onDelete(p)} title="Archive"><Trash2 size={13} /></IconButton>}

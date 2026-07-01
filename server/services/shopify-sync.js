@@ -68,6 +68,48 @@ async function processDraftOrder(payload) {
   )
 }
 
+let cachedLocationId = null
+async function getPrimaryLocationId() {
+  if (cachedLocationId) return cachedLocationId
+  const res = await fetch(
+    `https://${process.env.SHOPIFY_SHOP_DOMAIN}/admin/api/2026-04/locations.json`,
+    { headers: { 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN } }
+  )
+  const data = await res.json()
+  cachedLocationId = data.locations?.[0]?.id || null
+  return cachedLocationId
+}
+
+async function enqueueInventoryAdjust(productId, delta) {
+  await query(
+    `INSERT INTO pending_shopify_sync (action_type, payload, next_retry_at) VALUES ('inventory_adjust', $1::jsonb, NOW())`,
+    [JSON.stringify({ product_id: productId, delta })]
+  )
+}
+
+async function processInventoryAdjust(payload) {
+  if (!process.env.SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    throw new Error('Shopify not configured')
+  }
+  const prod = await query(`SELECT shopify_inventory_item_id FROM products WHERE id = $1`, [payload.product_id])
+  const inventoryItemId = prod.rows[0]?.shopify_inventory_item_id
+  if (!inventoryItemId) return // product was never published to Shopify — nothing to sync
+
+  const locationId = await getPrimaryLocationId()
+  if (!locationId) throw new Error('Could not resolve Shopify location')
+
+  const response = await fetch(
+    `https://${process.env.SHOPIFY_SHOP_DOMAIN}/admin/api/2026-04/inventory_levels/adjust.json`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN },
+      body: JSON.stringify({ location_id: locationId, inventory_item_id: inventoryItemId, available_adjustment: payload.delta })
+    }
+  )
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.errors ? JSON.stringify(data.errors) : 'Shopify inventory adjust failed')
+}
+
 async function runRetryQueue() {
   try {
     const pending = await query(
@@ -78,6 +120,8 @@ async function runRetryQueue() {
       try {
         if (item.action_type === 'draft_order') {
           await processDraftOrder(item.payload)
+        } else if (item.action_type === 'inventory_adjust') {
+          await processInventoryAdjust(item.payload)
         }
         await query(`UPDATE pending_shopify_sync SET status = 'done', attempts = $1 WHERE id = $2`, [attempts, item.id])
         console.log(`[shopify-sync] Item ${item.id} processed OK (attempt ${attempts})`)
@@ -143,4 +187,4 @@ async function registerWebhooks() {
   }
 }
 
-module.exports = { enqueueDraftOrder, startSyncCron, registerWebhooks }
+module.exports = { enqueueDraftOrder, enqueueInventoryAdjust, startSyncCron, registerWebhooks }

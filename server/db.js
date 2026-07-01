@@ -116,6 +116,12 @@ async function runStartupMigrations() {
   await query(`ALTER TABLE production_order_lines ADD COLUMN IF NOT EXISTS ready_formula_id INTEGER REFERENCES products(id) ON DELETE SET NULL`)
   await query(`ALTER TABLE production_order_lines ADD COLUMN IF NOT EXISTS use_ready_formula BOOLEAN DEFAULT false`)
   await query(`ALTER TABLE production_orders ADD COLUMN IF NOT EXISTS shopify_draft_order_number VARCHAR(20)`)
+  // Shopify product sync (Diffusers and future finished-good publishing)
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS price DECIMAL`)
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT`)
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS shopify_product_id BIGINT`)
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS shopify_inventory_item_id BIGINT`)
+  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS shopify_synced_at TIMESTAMP`)
 
   // Data normalization
   await query(`UPDATE products SET category = 'RAW_MATERIAL' WHERE category = 'RAW_MATERIALS'`)
