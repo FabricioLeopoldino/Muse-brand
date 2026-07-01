@@ -68,25 +68,11 @@ router.post('/webhook/shopify', async (req, res) => {
           console.log(`[webhook] cancelled ${order.order_number} — stock reservations released`)
           await auditLog(0, 'shopify_order_cancelled', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId })
         } else {
-          await withTransaction(async (client) => {
-            const tq = (text, params) => client.query(text, params)
-            const comps = await tq(`SELECT * FROM production_order_components WHERE production_order_id = $1 AND source = 'general_stock'`, [order.id])
-            for (const comp of comps.rows) {
-              if (comp.product_id) {
-                await tq(
-                  `INSERT INTO stock_reservations (production_order_id, production_order_line_id, product_id, product_code, source, quantity_reserved, status)
-                   VALUES ($1,$2,$3,$4,'general_stock',$5,'reserved')
-                   ON CONFLICT (production_order_id, product_id) WHERE product_id IS NOT NULL AND client_stock_id IS NULL
-                   DO UPDATE SET quantity_reserved = stock_reservations.quantity_reserved + EXCLUDED.quantity_reserved`,
-                  [order.id, comp.production_order_line_id, comp.product_id, comp.product_code, comp.quantity_required]
-                )
-              }
-            }
-            await tq(
-              `UPDATE production_orders SET shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
-              [shopifyOrderId, body.name || body.order_number, order.id]
-            )
-          })
+          // Only update Shopify references — reservations are managed by the production flow
+          await query(
+            `UPDATE production_orders SET shopify_order_id = $1, shopify_order_number = $2, updated_at = NOW() WHERE id = $3`,
+            [shopifyOrderId, body.name || body.order_number, order.id]
+          )
           console.log(`[webhook] updated ${order.order_number} → Shopify ${body.name}`)
           await auditLog(0, 'shopify_payment_confirmed', 'production_order', order.id, order.order_number, { shopify_order_id: shopifyOrderId, shopify_order_number: body.name })
         }
